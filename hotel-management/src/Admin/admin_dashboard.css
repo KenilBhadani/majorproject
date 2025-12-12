@@ -1,0 +1,55 @@
+/* ---------- Dashboard UI additions ---------- */
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.kpi-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpi-top { display:flex; justify-content:space-between; align-items:flex-start; }
+.kpi-title { font-size:13px; color:#6b7280; }
+.kpi-value { font-size:28px; font-weight:700; margin-top:6px; }
+.kpi-percent.up { color:#16a34a; font-weight:700; } /* green */
+.kpi-percent.down { color:#ef4444; font-weight:700; } /* red */
+
+.kpi-subrow { display:flex; justify-content:space-between; margin-top:6px; gap:12px; }
+.kpi-subtitle { font-size:11px; color:#9ca3af; }
+.kpi-subvalue { font-weight:600; margin-top:4px; }
+
+.kpi-spark { margin-top:6px; height:48px; }
+
+.recent-section { margin-top:22px; }
+.table-wrap { overflow-x:auto; background:#fff; border-radius:10px; padding:8px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); }
+.recent-table { width:100%; border-collapse:collapse; font-size:13px; }
+.recent-table th { text-align:left; padding:10px 8px; color:#6b7280; font-weight:600; font-size:12px; }
+.recent-table td { padding:10px 8px; border-top:1px solid #eef2f6; }
+
+.muted { text-align:center; padding:12px; color:#9ca3af; }
+
+.status-pill { padding:6px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+.status-pill.green { background:#ecfdf5; color:#065f46; }
+.status-pill.yellow { background:#fffbeb; color:#92400e; }
+.status-pill.red { background:#fff1f2; color:#9f1239; }
+
+/* topbar month selector */
+.top-actions { display:flex; align-items:center; gap:12px; }
+.month-label { font-size:13px; color:#6b7280; }
+.month-select { padding:8px 10px; border-radius:8px; border:1px solid #e6e9ef; background:white; }
+
+/* responsive */
+@media (max-width: 900px) {
+  .cards-grid { grid-template-columns: 1fr; }
+  .sidebar { display:none; }
+  .main { padding-left:16px; }
+}
