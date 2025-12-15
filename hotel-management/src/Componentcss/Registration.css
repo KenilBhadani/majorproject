@@ -1,0 +1,314 @@
+/* src/Componentcss/Registration.css
+   Animated, production-ready styles for your Register.jsx (no JS changes required)
+*/
+
+/* ---------- variables ---------- */
+:root{
+  --bg: #f6f8fb; 
+  --muted: #f1f3f7;
+  --accent: #4f46e5;
+  --accent-2: #02034d;
+  --danger: #ef4444;
+  --success: #059669;
+  --radius: 12px;
+  --shadow-sm: 0 6px 18px rgba(2,6,23,0.06);
+  --shadow-lg: 0 12px 36px rgba(2,6,23,0.08);
+  --gap: 14px;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* ---------- global reset ---------- */
+* { box-sizing: border-box; }
+html,body,#root { height:100%; margin:0; background:linear-gradient(180deg,#fbfdff,#f6f8fb); color:#f2f3f7; }
+
+/* ---------- page layout ---------- */
+/* .reg-page{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:32px 20px;
+} */
+.reg-page {
+  position: relative;
+  min-height: 100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:32px 20px;
+
+  background: url('../images/reg_back_image.jpg') center/cover no-repeat;
+}
+
+/* dark overlay */
+.reg-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(1px);
+}
+
+.reg-card {
+  position: relative; /* ↑ keeps card above dark overlay */
+  z-index: 2;
+}
+
+
+.reg-card{
+  width:100%;
+  max-width:480px;
+  background:var(--card);
+  border-radius:var(--radius);
+  padding:26px;
+  box-shadow:var(--shadow-lg);
+  transform-origin:center;
+  animation: cardIn 420ms cubic-bezier(.2,.9,.3,1);
+   display: flex;
+  flex-direction: column;
+  gap: 10px; 
+}
+
+/* small screens - slight reduce padding */
+@media (max-width:420px){
+  .reg-card{ padding:18px; border-radius:10px; }
+}
+
+/* ---------- heading ---------- */
+.reg-title{
+  font-size:35px;
+  margin:1 1 6px;
+  font-weight:700;
+  text-align: center;
+  letter-spacing:-0.1px;
+}
+.reg-sub { margin:0 0 12px; color:var(--muted); font-size:13px; }
+
+/* ---------- alerts ---------- */
+.reg-alert{
+  border-radius:10px;
+  padding:10px 12px;
+  margin-bottom:12px;
+  font-size:14px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.03);
+  opacity:0;
+  transform:translateY(-6px);
+  animation: alertIn 320ms forwards ease;
+}
+
+.reg-alert-error{
+  background: rgba(239, 68, 68, 0.25);   /* stronger red */
+  color: #ffffff;                       /* white text */
+  border: 1px solid #ef4444;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  animation: shake 540ms linear;
+}
+
+
+.reg-alert-success{
+  background:#ecfdf5;
+  color:#f1190a;
+  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  border:1px solid rgba(6,95,70,0.06);
+  animation: popIn 360ms cubic-bezier(.2,.9,.3,1) forwards;
+}
+
+/* delay so the element animates in smoothly */
+.reg-alert { animation-delay: 40ms; }
+
+/* ---------- form layout ---------- */
+.reg-form{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+/* label wrapper — keep text above input for accessibility */
+.reg-label{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  font-size:20px;
+  color:var(--muted);
+}
+
+/* input base */
+.reg-input{
+font-size:15px;
+  padding:12px 14px;
+  border-radius:10px;
+
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(4px);
+
+  border:1px solid rgba(255,255,255,0.35);
+  color: #ffffff;
+
+  outline:none;
+  transition: box-shadow 180ms ease, border-color 180ms ease, transform 120ms ease;
+  transform: translateZ(0);
+  width:100%;
+  box-sizing:border-box;
+}
+
+/* placeholder color */
+.reg-input::placeholder{color: rgba(255,255,255,0.65); }
+
+/* focus state: glow + border color sweep */
+.reg-input:focus{
+  border-color: var(--accent-2);
+  box-shadow: 0 10px 30px rgba(99,102,241,0.08);
+  transform: translateY(-1px);
+}
+
+/* nice underline animation with pseudo-element */
+.reg-label { position: relative; }
+.reg-label::after{
+  content: "";
+  position: absolute;
+  left:14px;
+  right:14px;
+  bottom: 6px; /* sits just below input */
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 300ms cubic-bezier(.2,.9,.3,1);
+  pointer-events: none;
+}
+
+/* show underline when input focused */
+.reg-input:focus + .reg-input, /* not used, keep for safety */
+.reg-label:focus-within::after{
+  transform: scaleX(1);
+}
+
+/* invalid look when error string present — we can't auto-detect error text, but show if .error class added */
+.reg-label.error .reg-input{
+  border-color: rgba(239,68,68,0.9);
+  box-shadow: 0 8px 20px rgba(239,68,68,0.06);
+}
+
+/* small helper text (if used) */
+.reg-help{ font-size:12px; color:var(--muted); }
+
+/* ---------- submit button ---------- */
+.reg-btn{
+  margin-top:6px;
+  padding:12px 14px;
+  border-radius:10px;
+  background: linear-gradient(90deg,var(--accent),var(--accent-2));
+  color:white;
+  font-weight:700;
+  border:none;
+  cursor:pointer;
+  font-size:15px;
+  transition: transform 120ms ease, box-shadow 160ms ease, opacity 120ms ease;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  position:relative;
+}
+
+/* hover + active micro interactions */
+.reg-btn:hover{ transform: translateY(-2px); box-shadow: 0 10px 28px rgba(99,102,241,0.12); }
+.reg-btn:active{ transform: translateY(-1px); }
+
+/* disabled state (your component uses disabled when loading) — show spinner via ::after */
+.reg-btn[disabled]{
+  opacity:0.9;
+  cursor: default;
+  filter: grayscale(0.02);
+  pointer-events: none;
+}
+
+/* spinner - white circular spinner on the right of the button */
+.reg-btn[disabled]::after{
+  content: "";
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  border: 2px solid rgba(255,255,255,0.32);
+  border-top-color: rgba(255,255,255,0.98);
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  animation: spin 0.9s linear infinite;
+}
+
+/* also show subtle pulse for loading */
+.reg-btn[disabled]{
+  box-shadow: 0 10px 30px rgba(99,102,241,0.06);
+  animation: pulse 1400ms ease-in-out infinite;
+}
+
+/* ---------- footer / link ---------- */
+.reg-footer{
+ margin-top: 0; /* remove extra push */
+  display: flex;
+  font-size: 20px;
+  justify-content: space-between;
+  align-items: center;
+   flex-wrap: nowrap;
+}
+
+.link-btn{
+  background:transparent;
+  border:none;
+  color:var(--accent-2);
+  cursor:pointer;
+  font-weight:600;
+  font-size: 20px;
+  text-decoration:underline;
+  padding-right: 25px;
+   white-space: nowrap;  
+}
+
+/* ---------- small responsive ---------- */
+@media (max-width:420px){
+  .reg-card{ padding:18px; border-radius:10px; max-width:420px; }
+  .reg-title{ font-size:20px; }
+}
+
+/* ---------- keyframes ---------- */
+@keyframes cardIn{
+  from { opacity:0; transform: translateY(18px) scale(.996); }
+  to { opacity:1; transform: translateY(0) scale(1); }
+}
+
+@keyframes alertIn{
+  from { opacity:0; transform: translateY(-8px); }
+  to { opacity:1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 8px 20px rgba(99,102,241,0.06); transform: translateY(0); }
+  50% { box-shadow: 0 14px 36px rgba(99,102,241,0.08); transform: translateY(-2px); }
+  100% { box-shadow: 0 8px 20px rgba(99,102,241,0.06); transform: translateY(0); }
+}
+
+/* error shake animation used when alert has error class */
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+/* success pop */
+@keyframes popIn {
+  0% { transform: translateY(-6px) scale(.98); opacity:0; }
+  60% { transform: translateY(2px) scale(1.01); opacity:1; }
+  100% { transform: translateY(0) scale(1); opacity:1; }
+}
+.reg-alert-error,
+.reg-alert-success {
+  opacity: 1 !important;
+}
