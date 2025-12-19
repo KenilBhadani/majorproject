@@ -1,0 +1,183 @@
+/* ===== RESET ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  background: #f5f7fb;
+  color: #111827;
+}
+
+/* ===== LAYOUT ===== */
+.admin-container {
+  display: flex;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  width: 240px;
+  background: #111827;
+  color: #fff;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.sidebar a {
+  text-decoration: none;
+  color: #d1d5db;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+  background: #4f46e5;
+  color: #fff;
+}
+
+/* ===== MAIN ===== */
+.main {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto; /* 🔑 scroll fix */
+}
+
+/* ===== TOP BAR ===== */
+.top-bar {
+  background: #fff;
+  padding: 16px 20px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logout-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* ===== CARD ===== */
+.card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.card-title {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+
+/* ===== TABLE ===== */
+.room-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.room-table thead {
+  background: #f3f4f6;
+}
+
+.room-table th,
+.room-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 14px;
+}
+
+.room-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* ===== STATUS COLORS ===== */
+.status-upcoming {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.status-checkedin {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-checkedout {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.status-cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ===== TABLE BUTTONS ===== */
+.room-table button {
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+.room-table button:first-child {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.room-table button:last-child {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ===== ERROR ===== */
+.error-text {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .sidebar {
+    width: 200px;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .sidebar a {
+    flex: 1 1 50%;
+    text-align: center;
+  }
+}

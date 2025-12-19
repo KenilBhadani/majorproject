@@ -1,7 +1,0 @@
-/* src/index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* optional: some defaults */
-body { @apply bg-slate-50 text-slate-900; }

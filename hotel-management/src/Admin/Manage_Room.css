@@ -1,0 +1,294 @@
+/* ===== RESET ===== */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  background: #f5f7fb;
+  color: #111827;
+  overflow-y: auto;
+}
+
+/* ===== LAYOUT ===== */
+.admin-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  width: 240px;
+  background: linear-gradient(180deg, #111827, #020617);
+  color: #fff;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h1 {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.sidebar a {
+  text-decoration: none;
+  color: #d1d5db;
+  padding: 12px 14px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+  background: #4f46e5;
+  color: #fff;
+}
+
+/* ===== MAIN ===== */
+.main {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* ===== TOP BAR ===== */
+.top-bar {
+  background: #fff;
+  padding: 18px 22px;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+.top-bar h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.logout-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background: #dc2626;
+}
+
+/* ===== CARD ===== */
+.card {
+  background: #fff;
+  padding: 26px;
+  border-radius: 16px;
+  margin-bottom: 26px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+/* ===== FORM ===== */
+.room-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group.full {
+  grid-column: span 2;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group textarea {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+}
+
+.form-group textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* ===== FORM ACTIONS ===== */
+.form-actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+/* ===== BUTTONS ===== */
+.primary-btn {
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+  color: #fff;
+  border: none;
+  padding: 12px 26px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-btn:hover {
+  opacity: 0.95;
+}
+
+.secondary-btn {
+  background: #e5e7eb;
+  color: #111827;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.secondary-btn:hover {
+  background: #d1d5db;
+}
+
+/* ===== TABLE ===== */
+.room-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.room-table thead {
+  background: #f3f4f6;
+}
+
+.room-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.room-table th,
+.room-table td {
+  padding: 14px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 14px;
+}
+
+.room-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* ===== STATUS ===== */
+.available {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.not-available {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* ===== TABLE ACTION BUTTONS ===== */
+.room-table button {
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+.room-table button:first-child {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.room-table button:last-child {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ===== ERROR ===== */
+.error-text {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group.full {
+    grid-column: span 1;
+  }
+
+  .sidebar {
+    width: 200px;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .sidebar a {
+    flex: 1 1 50%;
+    text-align: center;
+  }
+}

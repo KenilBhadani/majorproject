@@ -24,45 +24,42 @@ export default function Dash() {
   const [error, setError] = useState(null);
 
   // Fetch overview data from backend
-  async function fetchOverview(month) {
-    setLoading(true);
+async function fetchOverview(month) {
+  setLoading(true);
+  try {
+    const res = await fetch("http://localhost:5000/api/admin/overview?month=" + month);
+    const text = await res.text();
+    const json = JSON.parse(text);
+
+    setOverview(json);
     setError(null);
-    try {
-      const token = localStorage.getItem('token'); // adjust to your auth
-      const res = await fetch(`/api/admin/overview?month=${month}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: token ? `Bearer ${token}` : ''
-        }
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || 'Failed to fetch overview');
-      setOverview(json);
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'Server error');
-      setOverview(null);
-    } finally {
-      setLoading(false);
-    }
+  } catch (err) {
+    console.error(err);
+    setError("Backend response error");
+    setOverview(null);
+  } finally {
+    setLoading(false);
   }
+}
 
   // Fetch a small recent bookings list (server should provide /api/admin/recent-bookings)
   async function fetchRecentBookings() {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/admin/recent-bookings?limit=6', {
-        headers: { Authorization: token ? `Bearer ${token}` : '' }
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || 'Failed to fetch bookings');
-      setRecentBookings(json.bookings || json || []);
-    } catch (err) {
-      // fallback: leave empty
-      console.warn('recent bookings fetch failed', err);
+  try {
+    const res = await fetch("/api/admin/recent-bookings?limit=6");
+    const text = await res.text();
+
+    if (!res.ok) {
       setRecentBookings([]);
+      return;
     }
+
+    const json = JSON.parse(text);
+    setRecentBookings(json.bookings || []);
+  } catch (err) {
+    console.warn("recent bookings fetch failed");
+    setRecentBookings([]);
   }
+}
 
   useEffect(() => {
     fetchOverview(selectedMonth);
