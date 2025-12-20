@@ -9,7 +9,7 @@ import Herosection from "./comp/index";
 import AboutUs from "./comp/About";
 import Middle from "./comp/Middle";
 import Footer from "./comp/footer";
-
+import Rooms from "./comp/staticroom"
 function App() {
   return (
     <Routes>
@@ -21,6 +21,7 @@ function App() {
             <Herosection />
             <AboutUs />
             <Middle />
+            <Rooms />
             <Footer />
           </>
         }
