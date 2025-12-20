@@ -1,0 +1,177 @@
+.roomsction{
+    margin-bottom: 90px;
+}
+.firstouter{
+    padding-left: 50px;
+}
+.firstouter > h2{
+    font-size: 50px;
+    max-width: 800px;
+    margin-top: 10px;
+}
+.firstouter >p{
+    margin-top: 100px;
+    font-size: 30px;
+    margin-bottom: -15px;
+    font-weight: 200;
+}
+
+.roomouter{
+    height: 450px;
+    display: grid;
+    grid-template-columns: auto auto auto;
+    justify-content: center;
+    align-items: center;
+}
+.room1{
+    background-color: rgb(247, 245, 245);
+    height: 500px;
+    display: grid;
+    grid-template-rows: auto auto auto;
+    border-radius: 10px;
+    margin: 0px 20px;
+    max-width: 370px;
+   
+}
+.bouter2{
+    background-image: url('../images/room.jpg');
+    height: 240px;
+    background-size: cover;
+    border-top-right-radius: 10px;
+    border-top-left-radius: 10px;
+}
+.bouter1{
+    background-image: url('../images/room1.jpg');
+    height: 240px;
+    background-size: cover;
+    border-top-right-radius: 10px;
+    border-top-left-radius: 10px;
+}
+.bouter{
+    background-image: url('../images/room2.jpg');
+    height: 240px;
+    background-size: cover;
+    border-top-right-radius: 10px;
+    border-top-left-radius: 10px;
+}
+.binner{
+    margin-top: -15px;
+    flex-grow: 1;
+}
+.binner #a{
+ font-size: 20px;
+ padding-left: 20px;
+ font-weight: 700;
+}
+.binner #b{
+    padding: 0px 20px;
+    font-size: 20px;
+    color: rgb(61, 61, 61);
+    font-weight: 200;
+    margin: 0px;
+}
+.binner #c{
+  padding-left: 20px;
+  font-size: 20px;
+  margin-top: 10px;
+  font-weight: 400;
+  color: rgb(53, 53, 53);
+}
+#d{
+    color: black;
+    font-weight: 700;
+}
+.binner button{
+    padding: 10px 20px;
+    border-radius: 10px;
+    background-color: #ff1466;
+    color: white;
+    font-size: 20px;
+    margin-left: 20px;
+    margin-top: 0px;
+    margin-top: auto;
+}
+
+/* ================= RESPONSIVE MEDIA QUERIES ================= */
+
+/* --- Tablet View (max-width: 1024px) --- */
+@media screen and (max-width: 1024px) {
+    .roomsction {
+        margin-bottom: 60px;
+    }
+
+    .firstouter {
+        padding-left: 30px;
+        text-align: center; /* Center title on smaller screens */
+    }
+
+    .firstouter > h2 {
+        font-size: 40px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .roomouter {
+        /* Change from 3 columns to 2 columns */
+        grid-template-columns: repeat(2, 1fr);
+        height: auto; /* IMPORTANT: Remove fixed height so cards can stack */
+        gap: 30px; /* Add space between rows */
+        padding-bottom: 40px;
+    }
+
+    /* Adjust specific room card spacing */
+    .room1 {
+        margin: 0 auto; /* Center the cards */
+        width: 100%;
+    }
+}
+
+/* --- Mobile View (max-width: 768px) --- */
+@media screen and (max-width: 768px) {
+    .firstouter {
+        padding-left: 20px;
+        padding-right: 20px;
+        text-align: left; /* Optional: keep left or center based on preference */
+    }
+
+    .firstouter > p {
+        font-size: 20px;
+        margin-top: 50px; /* Reduce top space */
+    }
+
+    .firstouter > h2 {
+        font-size: 32px; /* Smaller title for mobile */
+        max-width: 100%;
+    }
+
+    .roomouter {
+        /* Change to 1 column (Stack vertically) */
+        grid-template-columns: 1fr;
+        height: auto;
+        margin-top: 30px;
+        gap: 40px;
+    }
+
+    .room1 {
+        max-width: 100%; /* Use full width of screen */
+        margin: 0 15px; /* Add slight side margin */
+        height: auto; /* Allow card to grow if text is long */
+        padding-bottom: 20px; /* Add padding at bottom of card */
+    }
+
+    /* Adjust image height for mobile */
+    .bouter, .bouter1, .bouter2 {
+        height: 200px;
+    }
+
+    .binner #b {
+        font-size: 16px; /* Smaller description text */
+        line-height: 1.5;
+    }
+
+    .binner button {
+        width: calc(100% - 40px); /* Make button full width minus margins */
+        margin-top: 15px;
+        margin-bottom: 10px;
+    }
+}

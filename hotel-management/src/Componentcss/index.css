@@ -1,62 +1,373 @@
-.header{
-    background-image: url('../images/header.jpg');
-    background-size: cover;
-    background-position: center;
-    height: 690px;
-    width: 100%;   
-}
-.nav-bar{
-    display: flex;
-    justify-content: space-between;
-    padding: 40px;
-    height: 80px;    
-}
-.navbarlogo{
-    font-size: 25px;
-    color: white;
-    font-weight: 600;
-    margin-left: 200px;
-}
-.header-ul{
-    list-style: none;
-    display: flex;
-    gap: 40px;
-    margin: 0;
-    padding: 0;
-    color: white;
-    font-size: 20px;
+/* ================= GLOBAL FONTS ================= */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+body {
+    font-family: 'Montserrat', sans-serif; /* Using a more modern font */
 }
 
-.headerbtn{
-    background-color: rgb(209, 19, 82);
-    height: 45px;
-    width: 120px;
+/* ================= HEADER BACKGROUND & LAYOUT ================= */
+.header {
+  /* IMPROVEMENT: Use a gradient overlay instead of flat color for depth */
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.8) 20%, rgba(0, 0, 0, 0.3)), url('../images/header.jpg');
+  background-size: cover;
+  background-position: center;
+  height: 100vh;
+  min-height: 600px;
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: center; /* Vertically center the hero content */
+}
+
+/* Wrapper to handle max width and padding of hero content */
+.hero-content-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 0 40px; /* Match navbar padding */
+    box-sizing: border-box;
+    margin-top: 80px; /* Offset for fixed navbar */
+}
+
+/* ================= NAVBAR (Minor Tweaks) ================= */
+.nav-container {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2); /* Lighter navbar background bc header is darker now */
+  backdrop-filter: blur(10px); /* Modern frosted glass effect */
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  height: 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.navbarlogo {
+  font-size: 28px; /* Slightly bigger */
+  color: white;
+  font-weight: 800;
+  letter-spacing: 1px;
+  z-index: 1002;
+}
+
+/* ... (Keep your existing .header-ul, .headerlabel, .headerlink, .hamburger styles) ... */
+
+.headerbtn {
+    /* Existing top button style */
+  background-color: rgb(209, 19, 82);
+  height: 40px;
+  padding: 0 25px;
+  font-size: 15px;
+  color: white;
+  border-radius: 30px; /* More modern rounded corners */
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.3s;
+}
+.headerbtn:hover { background-color: rgb(235, 45, 105); }
+
+
+/* ================= IMPROVED HERO SECTION TYPOGRAPHY ================= */
+.herosection {
+  text-align: left; /* Change from center to left aligned */
+  max-width: 700px; /* Restrict width for better readability */
+  color: white;
+}
+
+/* 1. The Tagline */
+.hero-tagline {
+  font-size: 16px;
+  color: rgb(209, 19, 82); /* Accent color */
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 15px;
+  display: inline-block;
+}
+
+/* 2. The Main Title */
+.hero-title {
+  font-size: 70px; /* Much larger */
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 0;
+  margin-bottom: 25px;
+}
+.Herop { color: rgb(209, 19, 82); }
+
+/* 3. The Description */
+.hero-description {
     font-size: 18px;
-    color: white;
-    border-radius: 10px;
-    margin-right: 200px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.8); /* Slightly transparent white */
+    margin-bottom: 40px;
+    max-width: 90%;
 }
 
-.herosection{
-    text-align: center;
-    margin-top: 120px;
+/* ================= HERO BUTTONS ================= */
+.hero-btns {
+    display: flex;
+    gap: 20px; /* Space between buttons */
 }
-#firstp{
-    font-size: 20px;
-    color: gray;
-    font-weight: 600;
-    margin-bottom: auto;
+
+.btn-primary, .btn-secondary {
+    padding: 15px 35px;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
-#secondp{
-    font-size: 70px;
+
+/* Main Pink Button */
+.btn-primary {
+    background-color: rgb(209, 19, 82);
     color: white;
-    padding: 0%;
-    font-style: "poppins" , sans-serif;
-    font-weight: 600;
-    margin-left: 400px;
-    margin-top: auto;
-    max-width: 800px;
+    border: 2px solid rgb(209, 19, 82);
 }
-.Herop{
-    color: rgba(231, 44, 75, 0.779);
+.btn-primary:hover {
+    background-color: transparent;
+    color: rgb(209, 19, 82);
+}
+
+/* Secondary Outline Button */
+.btn-secondary {
+    background-color: transparent;
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+}
+.btn-secondary:hover {
+    border-color: white;
+    background-color: white;
+    color: black;
+}
+
+/* ================= ANIMATION ================= */
+.fade-in-up {
+    animation: fadeInUp 1s ease-out forwards;
+    opacity: 0; /* Start hidden */
+    transform: translateY(30px); /* Start slightly down */
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ================= RESPONSIVE TWEAKS ================= */
+@media (max-width: 1024px) {
+    .hero-title { font-size: 55px; }
+}
+
+@media (max-width: 768px) {
+    /* Center everything again on mobile */
+    .header { /* Revert gradient for mobile if needed, or keep it */
+       background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('../images/header.jpg');
+       background-position: center;
+       background-size: cover;
+       align-items: center;
+    }
+
+    .hero-content-wrapper {
+        padding: 0 20px;
+        margin-top: 0; /* Remove offset */
+    }
+    
+    .herosection {
+        text-align: center; /* Back to center on mobile */
+        margin: 0 auto;
+    }
+
+    .hero-tagline { font-size: 14px; }
+    .hero-title { font-size: 42px; }
+    .hero-description { font-size: 16px; margin-left: auto; margin-right: auto;}
+
+    .hero-btns {
+        justify-content: center; /* Center buttons */
+        flex-direction: column; /* Stack buttons on small phones */
+        gap: 15px;
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    
+    .btn-primary, .btn-secondary {
+        width: 100%;
+    }
+
+    .desktop-only { display: none; } /* Hide top nav button on mobile */
+}
+
+/* ================= DESKTOP NAV ITEM DESIGN ================= */
+.header-ul {
+  display: flex;
+  gap: 40px; /* Space between items */
+  list-style: none;
+  align-items: center;
+}
+
+.headerlabel {
+  position: relative; /* Required for the underline animation */
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  padding: 5px 0;
+  transition: color 0.3s ease; /* Smooth text color change */
+}
+
+/* The Styles for the React Link inside the li */
+.headerlink {
+  text-decoration: none;
+  color: inherit; /* Inherits the color from headerlabel */
+}
+
+/* --- THE HOVER ANIMATION --- */
+
+/* 1. Create the underline (hidden by default) */
+.headerlabel::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -2px; /* Place it slightly below text */
+  left: 50%;
+  background-color: rgb(209, 19, 82); /* Pink Accent */
+  transition: all 0.3s ease-in-out;
+  transform: translateX(-50%); /* Centers the starting point */
+}
+
+/* 2. Hover State */
+.headerlabel:hover {
+  color: white; /* Make text pure white */
+  text-shadow: 0 0 10px rgba(209, 19, 82, 0.5); /* Subtle glow */
+}
+
+.headerlabel:hover::after {
+  width: 100%; /* Expands the line to full width */
+}
+
+/* ================= MOBILE NAV ITEM DESIGN ================= */
+@media (max-width: 768px) {
+  /* On mobile, we want big clickable areas, not underlines */
+  
+  .headerlabel {
+    font-size: 20px;
+    font-weight: 500;
+    width: 80%; /* Limits width */
+    margin: 0 auto; /* Centers it */
+    padding: 15px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Divider line */
+    text-align: center;
+  }
+
+  /* Remove desktop underline effect on mobile */
+  .headerlabel::after {
+    display: none;
+  }
+
+  /* Mobile Hover: Light background highlight */
+  .headerlabel:hover {
+    background-color: rgba(255, 255, 255, 0.1); 
+    border-radius: 8px;
+    color: rgb(209, 19, 82);
+    border-bottom-color: transparent;
+    text-shadow: none;
+  }
+}
+
+/* ================= NAV CONTAINER & HAMBURGER ================= */
+.nav-container {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2); /* Semi-transparent background */
+  backdrop-filter: blur(10px); /* Modern blur effect */
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  height: 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* --- Hamburger Icon (Hidden on Desktop) --- */
+.hamburger {
+  display: none;
+  cursor: pointer;
+  z-index: 1002; /* Must be higher than the menu overlay */
+}
+
+.bar {
+  display: block;
+  width: 25px;
+  height: 3px;
+  margin: 5px auto;
+  background-color: white;
+  transition: all 0.3s ease-in-out;
+  border-radius: 3px;
+}
+
+/* Hamburger Animation (Turn into X) */
+.bar.active:nth-child(2) { opacity: 0; }
+.bar.active:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+.bar.active:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+
+/* ================= MOBILE MENU LOGIC ================= */
+@media (max-width: 768px) {
+  .hamburger {
+    display: block; /* Show hamburger only on mobile */
+  }
+
+  /* 1. Default State: Hidden off-screen */
+  .header-ul {
+    position: fixed;
+    top: 0;
+    left: -100%; /* Hides menu to the left */
+    width: 100%;
+    height: 100vh; /* Full screen height */
+    background-color: rgba(0, 0, 0, 0.95); /* Solid dark background */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: 0.4s ease-in-out; /* Smooth slide animation */
+    z-index: 1001;
+    gap: 40px; /* Space between links */
+  }
+
+  /* 2. Active State: Slide in (Triggered by React) */
+  .header-ul.active {
+    left: 0; /* Brings menu onto screen */
+  }
+
+  /* Mobile Text Styling */
+  .headerlabel {
+    font-size: 24px;
+    font-weight: 600;
+  }
+
+  /* Hide the Desktop "Book Now" button on mobile */
+  .desktop-only {
+    display: none;
+  }
 }

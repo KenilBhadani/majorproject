@@ -1,0 +1,36 @@
+.small {
+    height: 250px;
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.smallouter {
+    background-color: white;
+    padding: 10px 150px;
+    border-radius: 20px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 190px;    /* perfect spacing */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.smallinner1 {
+    text-align: center;
+}
+
+.firstp {
+    font-size: 40px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.secon {
+    font-size: 18px;
+    font-weight: 500;
+    max-width: 200px;
+    margin: auto;
+    color: #555;
+}
