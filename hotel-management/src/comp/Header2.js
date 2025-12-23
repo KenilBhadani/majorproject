@@ -84,7 +84,10 @@ function Header2() {
         onMouseEnter={() => setHoverBtn(true)}
         onMouseLeave={() => setHoverBtn(false)}
       >
-        My Booking
+        <Link
+          to="/BookingFrompage"
+          style={{ textDecoration: "none", color: "inherit" }}>
+            My Booking </Link>
       </button>
     </section>
   );

@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
+import Bookingpage from "./comp/Bookingpage";
+import Bookformpage from "./comp/BookForm";
+
 // Auth pages (YOUR PART)
 import Register from "./comp/Registration";
 import Login from "./comp/Login";
@@ -10,6 +13,12 @@ import AboutUs from "./comp/About";
 import Middle from "./comp/Middle";
 import Footer from "./comp/footer";
 import Rooms from "./comp/staticroom"
+import Small from "./comp/small";
+//import Header2 from "./comp/Header2";
+
+
+import Mybooking from "./comp/Mybookingpage";
+
 function App() {
   return (
     <Routes>
@@ -18,14 +27,21 @@ function App() {
         path="/"
         element={
           <>
-            <Herosection />
+          <Herosection />
             <AboutUs />
             <Middle />
             <Rooms />
+            <Small />
             <Footer />
+            {/* <Mybooking></Mybooking> */}
           </>
         }
       />
+{/*  */}
+       <Route path="/BookingFrompage" element={<Bookformpage />} />
+      {/* ====Booking page ===== */}
+       <Route path="/bookingpage" element={<Bookingpage />} />
+
 
       {/* ===== Auth Pages (Your Work) ===== */}
       <Route path="/register" element={<Register />} />

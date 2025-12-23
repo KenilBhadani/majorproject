@@ -34,7 +34,7 @@ function Horosection() {
               </li>
             </ul>
              {/* Optional: Hide this top button on desktop since we added big ones below */}
-            <button className="headerbtn desktop-only">Book Now</button>
+            <button className="headerbtn desktop-only"><Link to="/bookingpage" className='headerlink'>Book Now</Link></button>
           </div>
         </div>
 
@@ -56,7 +56,7 @@ function Horosection() {
 
             {/* 4. New CTA Buttons */}
             <div className="hero-btns">
-                <button className="btn-primary">Book Your Stay</button>
+                <button className="btn-primary"><Link to="/bookingpage" className='headerlink'>Book Your Stay</Link></button>
                 <button className="btn-secondary">Take A Tour</button>
             </div>
             </div>

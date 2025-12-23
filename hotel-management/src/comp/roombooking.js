@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import Footer from "./footer.js"; // Ensure this path is correct
+import '.'
 // Import your images here as you did before
 import room1 from "../images/room1.jpg";
 import room2 from "../images/room.jpg";
@@ -160,7 +160,7 @@ export default function RoomListing() {
           {roomsData.map(room => <RoomCard key={room.id} room={room} />)}
         </div>
       </main>
-      <Footer />
+    
     </div>
   );
 }
