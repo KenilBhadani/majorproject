@@ -1,95 +1,57 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import React from 'react';
+import { Link, useLocation } from "react-router-dom";
 
 function Header2() {
+  const location = useLocation();
 
-  const [hoverItem, setHoverItem] = useState(null);
-  const [hoverBtn, setHoverBtn] = useState(false);
-
-  const headerstyle = {
-    display: "flex",
-    alignItems: "center",
-    padding: "16px 40px",
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #e8e8e8",
-  };
-
-  const brand = {
-    fontSize: "30px",
-    fontWeight: "750",
-    color: "#333",
-    marginLeft: "6rem",
-  };
-
-  const ulStyle = {
-    display: "flex",
-    listStyleType: "none",
-    gap: "30px",
-    padding: "0",
-    marginLeft: "auto",
-    marginRight: "40px",
-    fontSize: "20px",
-    fontWeight: "700",
-    marginTop: "0",
-    marginBottom: "0",
-  };
-
-  // 👇 LI hover style
-  const listyle = (isHover) => ({
-    margin: "0",
-    padding: "0",
-    cursor: "pointer",
-    color: isHover ? "#01eaacff" : "#555",
-    transition: "color 0.3s ease",
-   
-  });
-
-  // 👇 Button hover style
-  const btnstyle = {
-    padding: "10px 20px",
-    backgroundColor: hoverBtn ? "#1f4773ff" : "#007bff",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontWeight: "550",
-    transition: "background-color 0.3s ease",
-    marginRight: "30px",
-  };
+  // Helper to check if a link is active
+  const isActive = (path) => location.pathname === path;
 
   return (
-    <section style={headerstyle} className="header2">
-      <div style={brand}>RoyalPark</div>
+    <nav className="flex items-center justify-between px-6 py-4 bg-white shadow-md sticky top-0 z-50">
+      
+      {/* --- BRAND / LOGO --- */}
+      <div className="flex items-center gap-2 ml-4 md:ml-10">
+        <span className="text-2xl md:text-3xl">👑</span>
+        <span className="text-2xl md:text-3xl font-serif font-bold text-slate-900 tracking-tight">
+          RoyalPark
+        </span>
+      </div>
 
-      <ul style={ulStyle}>
-        {["Home", "Rooms"].map((item) => (
-          <li
-            key={item}
-            style={listyle(hoverItem === item)}
-            onMouseEnter={() => setHoverItem(item)}
-            onMouseLeave={() => setHoverItem(null)}
+      {/* --- NAVIGATION LINKS --- */}
+      <ul className="hidden md:flex items-center gap-8 ml-auto mr-8">
+        <li>
+          <Link 
+            to="/" 
+            className={`text-lg font-semibold transition-colors duration-300 ${
+              isActive('/') ? 'text-amber-500' : 'text-gray-600 hover:text-amber-500'
+            }`}
           >
-             <Link
-              to={item === "Home" ? "/" : "/rooms"}
-              style={{ textDecoration: "none", color: "inherit" }}
-            >
-              {item}
-            </Link>
-          </li>
-        ))}
+            Home
+          </Link>
+        </li>
+        <li>
+          <Link 
+            to="/rooms" 
+            className={`text-lg font-semibold transition-colors duration-300 ${
+              isActive('/rooms') ? 'text-amber-500' : 'text-gray-600 hover:text-amber-500'
+            }`}
+          >
+            Rooms
+          </Link>
+        </li>
       </ul>
 
-      <button
-        style={btnstyle}
-        onMouseEnter={() => setHoverBtn(true)}
-        onMouseLeave={() => setHoverBtn(false)}
-      >
-        <Link
-          to="/BookingFrompage"
-          style={{ textDecoration: "none", color: "inherit" }}>
-            My Booking </Link>
-      </button>
-    </section>
+      {/* --- ACTION BUTTON --- */}
+      <div className="mr-4 md:mr-10">
+        <Link to="/BookingFrompage">
+          <button className="bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-6 rounded-lg shadow transition-all duration-300 transform hover:-translate-y-0.5">
+            My Booking
+          </button>
+        </Link>
+      </div>
+
+    </nav>
   );
 }
 

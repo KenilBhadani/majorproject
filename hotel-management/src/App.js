@@ -19,6 +19,8 @@ import OffersHero from "./comp/Offer";
 import Events from "./comp/Event";
 import AboutPage from "./comp/Aboutpage";
 import Contact from "./comp/Contact";
+import BookingSteps from "./comp/Bookingstep";
+import RoomListing from "./comp/roombooking";
 
 function App() {
   return (
@@ -36,6 +38,8 @@ function App() {
             <Events />
             <OffersHero />
             <Footer />
+            <RoomListing />
+<BookingSteps activeStep={1} />
           </>
         }
       />

@@ -14,8 +14,16 @@ mongoose
   .then(() => console.log("MongoDB Atlas connected"))
   .catch(err => console.error("MongoDB connection error:", err));
 
+// --- ROUTES CONFIGURATION ---
+
+// 1. Auth Routes (Existing)
 const authRoutes = require("./routes/auth");
 app.use("/api/auth", authRoutes);
+
+// 2. Room Routes
+const roomRoutes = require("./routes/RoomListing");
+app.use("/api/rooms", roomRoutes);
+// ----------------------------
 
 app.get("/", (req, res) => {
   res.send("Backend is running");
