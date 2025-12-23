@@ -40,17 +40,32 @@ function ManageUser() {
     setQuery("");
   }
 
-  async function toggleUserStatus(id, isActive) {
-    if (!window.confirm("Change user status?")) return;
+async function toggleUserStatus(id, currentStatus) {
+  if (!window.confirm("Change user status?")) return;
 
-    await fetch(`${API}/api/admin/users/${id}/status`, {
+  try {
+    const res = await fetch(`${API}/api/admin/users/${id}/status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !isActive })
+      body: JSON.stringify({ isActive: !currentStatus })
     });
 
-    fetchUsers();
+    if (!res.ok) {
+      alert("Failed to update status");
+      return;
+    }
+
+    // ✅ UPDATE UI IMMEDIATELY (NO STALE DATA)
+    setUsers(prev =>
+      prev.map(u =>
+        u._id === id ? { ...u, isActive: !currentStatus } : u
+      )
+    );
+  } catch (err) {
+    alert("Server error");
   }
+}
+
 
   const filteredUsers = users.filter(u =>
     `${u.firstName} ${u.lastName}`
