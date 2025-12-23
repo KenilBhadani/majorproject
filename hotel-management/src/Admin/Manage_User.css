@@ -1,0 +1,239 @@
+/* =========================
+   USER MANAGEMENT STYLES
+========================= */
+
+/* Page spacing */
+.main {
+  padding: 24px;
+}
+
+/* Card spacing override */
+.card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px 24px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+}
+
+/* Title */
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  color: #111827;
+}
+
+/* =========================
+   SEARCH BAR
+========================= */
+.user-search {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.user-search input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+}
+
+.user-search button {
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: none;
+  background: #4f46e5;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.user-search button:last-child {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+/* =========================
+   TABLE
+========================= */
+.room-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+}
+
+.room-table thead {
+  background: #f9fafb;
+}
+
+.room-table th {
+  text-align: left;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.room-table td {
+  padding: 12px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 14px;
+  color: #111827;
+}
+
+.room-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* =========================
+   STATUS BADGES
+========================= */
+.available {
+  background: #dcfce7;
+  color: #166534;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.not-available {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* =========================
+   ACTION BUTTONS
+========================= */
+.room-table button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.room-table button:hover {
+  transform: scale(1.05);
+}
+
+/* Block */
+.room-table button {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Unblock */
+.room-table button:has(+ span),
+.room-table button.unblock {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* =========================
+   EMPTY / LOADING
+========================= */
+.error-text {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+@media (max-width: 768px) {
+  .room-table th,
+  .room-table td {
+    font-size: 12px;
+    padding: 10px;
+  }
+
+  .user-search {
+    flex-direction: column;
+  }
+}
+
+/* ===== CONFIRM MODAL ===== */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.confirm-modal {
+  background: #ffffff;
+  width: 360px;
+  padding: 24px;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  animation: popIn 0.2s ease-out;
+}
+
+.confirm-modal h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: #111827;
+}
+
+.confirm-modal p {
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 20px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-cancel {
+  background: #e5e7eb;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-success {
+  background: #22c55e;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

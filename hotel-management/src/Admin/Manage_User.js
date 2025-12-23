@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import "../Admin/Manage_Room.css";
+import "../Admin/Manage_User.css";
 
 const API = "http://localhost:5000";
 
@@ -11,6 +11,10 @@ function ManageUser() {
 
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+
+  // 🔔 Confirmation modal state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -40,32 +44,46 @@ function ManageUser() {
     setQuery("");
   }
 
-async function toggleUserStatus(id, currentStatus) {
-  if (!window.confirm("Change user status?")) return;
-
-  try {
-    const res = await fetch(`${API}/api/admin/users/${id}/status`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !currentStatus })
-    });
-
-    if (!res.ok) {
-      alert("Failed to update status");
-      return;
-    }
-
-    // ✅ UPDATE UI IMMEDIATELY (NO STALE DATA)
-    setUsers(prev =>
-      prev.map(u =>
-        u._id === id ? { ...u, isActive: !currentStatus } : u
-      )
-    );
-  } catch (err) {
-    alert("Server error");
+  // 👉 Open confirmation modal
+  function openConfirm(user) {
+    setSelectedUser(user);
+    setConfirmOpen(true);
   }
-}
 
+  // ✅ Confirm block / unblock
+  async function confirmStatusChange() {
+    if (!selectedUser) return;
+
+    try {
+      const res = await fetch(
+        `${API}/api/admin/users/${selectedUser._id}/status`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: !selectedUser.isActive })
+        }
+      );
+
+      if (!res.ok) {
+        alert("Failed to update status");
+        return;
+      }
+
+      // 🔄 Update UI immediately
+      setUsers(prev =>
+        prev.map(u =>
+          u._id === selectedUser._id
+            ? { ...u, isActive: !selectedUser.isActive }
+            : u
+        )
+      );
+    } catch {
+      alert("Server error");
+    } finally {
+      setConfirmOpen(false);
+      setSelectedUser(null);
+    }
+  }
 
   const filteredUsers = users.filter(u =>
     `${u.firstName} ${u.lastName}`
@@ -99,7 +117,7 @@ async function toggleUserStatus(id, currentStatus) {
           <h3 className="card-title">User List</h3>
 
           {/* SEARCH */}
-          <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
+          <div className="search-bar">
             <input
               placeholder="Search user by name..."
               value={search}
@@ -138,9 +156,8 @@ async function toggleUserStatus(id, currentStatus) {
                     </td>
                     <td>
                       <button
-                        onClick={() =>
-                          toggleUserStatus(user._id, user.isActive)
-                        }
+                        className={user.isActive ? "btn-danger" : "btn-success"}
+                        onClick={() => openConfirm(user)}
                       >
                         {user.isActive ? "Block" : "Unblock"}
                       </button>
@@ -152,6 +169,35 @@ async function toggleUserStatus(id, currentStatus) {
           )}
         </div>
       </div>
+
+      {/* ===== CONFIRM MODAL ===== */}
+      {confirmOpen && (
+        <div className="confirm-overlay">
+          <div className="confirm-modal">
+            <h3>Confirm Action</h3>
+            <p>
+              Are you sure you want to{" "}
+              <strong>{selectedUser?.isActive ? "block" : "unblock"}</strong>{" "}
+              this user?
+            </p>
+
+            <div className="confirm-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setConfirmOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={selectedUser?.isActive ? "btn-danger" : "btn-success"}
+                onClick={confirmStatusChange}
+              >
+                {selectedUser?.isActive ? "Block" : "Unblock"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

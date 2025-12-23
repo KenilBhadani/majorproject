@@ -30,6 +30,8 @@ app.use("/api/admin/payments", adminPayments);
 
 app.use("/api/admin/users", adminUsers);
 
+app.use("/uploads", express.static("uploads"));
+
 
 
 // 🔹 Start server

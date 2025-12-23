@@ -17,6 +17,7 @@ function ManageRoom() {
 
   const didFetch = useRef(false);
 
+  // 🧾 FORM STATE
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -24,8 +25,12 @@ function ManageRoom() {
     pricePerNight: "",
     capacity: "",
     stock: "",
-    amenities: ""
+    amenities: "",
+    image: "" // existing image path (for edit)
   });
+
+  // 🖼️ FILE STATE
+  const [imageFile, setImageFile] = useState(null);
 
   useEffect(() => {
     if (didFetch.current) return;
@@ -75,13 +80,16 @@ function ManageRoom() {
       pricePerNight: room.pricePerNight,
       capacity: room.capacity,
       stock: room.stock,
-      amenities: room.amenities?.join(", ") || ""
+      amenities: room.amenities?.join(", ") || "",
+      image: room.image || ""
     });
+    setImageFile(null);
     setShowForm(true);
   }
 
   function resetForm() {
     setEditingId(null);
+    setImageFile(null);
     setForm({
       title: "",
       description: "",
@@ -89,24 +97,27 @@ function ManageRoom() {
       pricePerNight: "",
       capacity: "",
       stock: "",
-      amenities: ""
+      amenities: "",
+      image: ""
     });
   }
 
+  // 📤 SUBMIT WITH IMAGE
   async function handleSubmit(e) {
     e.preventDefault();
 
-    const payload = {
-      title: form.title,
-      description: form.description,
-      roomType: form.roomType,
-      pricePerNight: Number(form.pricePerNight),
-      capacity: Number(form.capacity),
-      stock: Number(form.stock),
-      amenities: form.amenities
-        ? form.amenities.split(",").map(a => a.trim())
-        : []
-    };
+    const fd = new FormData();
+    fd.append("title", form.title);
+    fd.append("description", form.description);
+    fd.append("roomType", form.roomType);
+    fd.append("pricePerNight", form.pricePerNight);
+    fd.append("capacity", form.capacity);
+    fd.append("stock", form.stock);
+    fd.append("amenities", form.amenities);
+
+    if (imageFile) {
+      fd.append("image", imageFile);
+    }
 
     const url = editingId
       ? `${API}/api/admin/rooms/${editingId}`
@@ -116,8 +127,7 @@ function ManageRoom() {
 
     await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: fd
     });
 
     resetForm();
@@ -157,7 +167,7 @@ function ManageRoom() {
 
         {error && <p className="error-text">{error}</p>}
 
-        {/* ===== FORM VIEW ===== */}
+        {/* FORM */}
         {showForm ? (
           <div className="card">
             <h3 className="card-title">
@@ -179,7 +189,7 @@ function ManageRoom() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Price / Night (₹)</label>
+                  <label>Price / Night</label>
                   <input type="number" name="pricePerNight" value={form.pricePerNight} onChange={handleChange} required />
                 </div>
 
@@ -199,6 +209,24 @@ function ManageRoom() {
                   <label>Amenities</label>
                   <input name="amenities" value={form.amenities} onChange={handleChange} placeholder="AC, WiFi, TV" />
                 </div>
+              </div>
+
+              {/* IMAGE */}
+              <div className="form-group full">
+                <label>Room Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setImageFile(e.target.files[0])}
+                />
+
+                {editingId && form.image && !imageFile && (
+                  <img
+                    src={`${API}${form.image}`}
+                    alt="Room"
+                    style={{ width: "120px", marginTop: "10px", borderRadius: "8px" }}
+                  />
+                )}
               </div>
 
               <div className="form-group full">
@@ -226,7 +254,6 @@ function ManageRoom() {
           </div>
         ) : (
           <>
-            {/* ADD BUTTON */}
             <button
               className="primary-btn"
               style={{ marginBottom: "16px" }}
@@ -235,7 +262,6 @@ function ManageRoom() {
               + Add New Room
             </button>
 
-            {/* LIST VIEW */}
             <div className="card">
               <h3 className="card-title">Rooms List</h3>
 
@@ -256,6 +282,15 @@ function ManageRoom() {
                   <tbody>
                     {filteredRooms.map(room => (
                       <tr key={room._id}>
+                        <td>
+                          {room.image && (
+                            <img
+                              src={`${API}${room.image}`}
+                              alt=""
+                              style={{ width: "60px", borderRadius: "6px" }}
+                            />
+                          )}
+                        </td>
                         <td>{room.title}</td>
                         <td>{room.roomType}</td>
                         <td>₹{room.pricePerNight}</td>
