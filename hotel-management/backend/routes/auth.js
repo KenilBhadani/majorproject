@@ -55,7 +55,7 @@ router.post("/login", async (req, res) => {
     }
 
     // 🚫 BLOCK CHECK (MOST IMPORTANT)
-    if (user.isActive === false) {
+    if (user.isActive !== true) {
       return res.status(403).json({
         message: "Your account has been blocked by admin"
       });
