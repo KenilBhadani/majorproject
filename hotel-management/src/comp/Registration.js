@@ -1,7 +1,7 @@
 // src/pages/Register.jsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import '../Componentcss/Registration.css'; // make sure path is correct
+import { useNavigate, Link } from "react-router-dom";
+import '../Componentcss/Registration.css'; 
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -63,7 +63,7 @@ export default function Register() {
         })
       });
 
-      const text = await res.text(); // safe parsing (server might return HTML on error)
+      const text = await res.text();
       let data = null;
       try { data = JSON.parse(text); } catch (err) { /* not JSON */ }
 
@@ -72,16 +72,12 @@ export default function Register() {
         throw new Error(msg);
       }
 
-      // success
-      const message = (data && (data.message || "Registration successful")) || "Registration successful";
-      setSuccess(message);
+      setSuccess("Registration successful! Redirecting...");
       setForm({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
 
-      // optional: navigate to login after a short delay
-      setTimeout(() => navigate("/login"), 1000);
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       console.error("Register error:", err);
-      // if server returned HTML (text begins with "<"), show friendly message
       const msg = err.message || "Server error";
       setError(msg.startsWith("<") ? "Server returned an HTML page. Check backend." : msg);
     } finally {
@@ -90,48 +86,99 @@ export default function Register() {
   }
 
   return (
-    <div className="reg-page">
-      <div className="reg-card" role="region" aria-labelledby="reg-heading">
-        <h1 id="reg-heading" className="reg-title">Create an account</h1>
+    <div className="reg-split-layout">
+      
+      {/* LEFT SIDE: IMAGE */}
+      <div className="reg-image-side">
+        <div className="reg-overlay">
+          <h2 className="reg-brand-title">👑 RoyalPark</h2>
+          <p className="reg-brand-subtitle">Join our exclusive community and experience luxury like never before.</p>
+        </div>
+      </div>
 
-        {error && <div className="reg-alert reg-alert-error" role="alert">{error}</div>}
-        {success && <div className="reg-alert reg-alert-success" role="status">{success}</div>}
+      {/* RIGHT SIDE: FORM */}
+      <div className="reg-form-side">
+        <div className="reg-form-container">
+          
+          <div className="reg-header">
+            <h1 className="reg-title">Create Account</h1>
+            <p className="reg-subtitle">Sign up to book your dream stay.</p>
+          </div>
 
-        <form className="reg-form" onSubmit={handleSubmit} noValidate>
-          <label className="reg-label">
-            Full name
-            <input name="name" value={form.name} onChange={handleChange} className="reg-input" placeholder="Your full name" />
-          </label>
+          {error && <div className="reg-alert reg-error">{error}</div>}
+          {success && <div className="reg-alert reg-success">{success}</div>}
 
-          <label className="reg-label">
-            Email
-            <input name="email" type="email" value={form.email} onChange={handleChange} className="reg-input" placeholder="name@example.com" />
-          </label>
+          <form className="reg-form" onSubmit={handleSubmit} noValidate>
+            
+            <div className="reg-input-group">
+              <label>Full Name</label>
+              <input 
+                name="name" 
+                value={form.name} 
+                onChange={handleChange} 
+                className="reg-input" 
+                placeholder="John Doe" 
+              />
+            </div>
 
-          <label className="reg-label">
-            Phone
-            <input name="phone" value={form.phone} onChange={handleChange} className="reg-input" placeholder="Enter Mobile Number" />
-          </label>
+            <div className="reg-input-group">
+              <label>Email Address</label>
+              <input 
+                name="email" 
+                type="email" 
+                value={form.email} 
+                onChange={handleChange} 
+                className="reg-input" 
+                placeholder="name@example.com" 
+              />
+            </div>
 
-          <label className="reg-label">
-            Password
-            <input name="password" type="password" value={form.password} onChange={handleChange} className="reg-input" placeholder="At least 6 characters" />
-          </label>
+            <div className="reg-input-group">
+              <label>Phone Number</label>
+              <input 
+                name="phone" 
+                value={form.phone} 
+                onChange={handleChange} 
+                className="reg-input" 
+                placeholder="+91 98765 43210" 
+              />
+            </div>
 
-          <label className="reg-label">
-            Confirm password
-            <input name="confirmPassword" type="password" value={form.confirmPassword} onChange={handleChange} className="reg-input" placeholder="Repeat password" />
-          </label>
+            <div className="reg-row">
+              <div className="reg-input-group">
+                <label>Password</label>
+                <input 
+                  name="password" 
+                  type="password" 
+                  value={form.password} 
+                  onChange={handleChange} 
+                  className="reg-input" 
+                  placeholder="******" 
+                />
+              </div>
 
-          <button type="submit" className="reg-btn" disabled={loading}>
-            {loading ? "Creating account..." : "Register"}
-          </button>
-        </form>
+              <div className="reg-input-group">
+                <label>Confirm</label>
+                <input 
+                  name="confirmPassword" 
+                  type="password" 
+                  value={form.confirmPassword} 
+                  onChange={handleChange} 
+                  className="reg-input" 
+                  placeholder="******" 
+                />
+              </div>
+            </div>
 
-        <div className="reg-footer">
-          <span>Already have an account? <button className="link-btn" onClick={() => navigate("/login")}>Login</button></span>
-         
-        </div> 
+            <button type="submit" className="reg-btn" disabled={loading}>
+              {loading ? "Creating..." : "Sign Up"}
+            </button>
+          </form>
+
+          <div className="reg-footer">
+            <p>Already have an account? <Link to="/login" className="reg-link">Log in</Link></p>
+          </div>
+        </div>
       </div>
     </div>
   );

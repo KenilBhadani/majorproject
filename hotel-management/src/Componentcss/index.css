@@ -1,163 +1,219 @@
-/* ================= GLOBAL FONTS ================= */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
-
-body {
-    font-family: 'Montserrat', sans-serif; /* Using a more modern font */
-}
-
-/* ================= HEADER BACKGROUND & LAYOUT ================= */
-.header {
-  /* IMPROVEMENT: Use a gradient overlay instead of flat color for depth */
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.8) 20%, rgba(0, 0, 0, 0.3)), url('../images/header.jpg');
-  background-size: cover;
-  background-position: center;
-  height: 100vh;
-  min-height: 600px;
-  width: 100%;
-  position: relative;
-  display: flex;
-  align-items: center; /* Vertically center the hero content */
-}
-
-/* Wrapper to handle max width and padding of hero content */
-.hero-content-wrapper {
-    max-width: 1400px;
-    margin: 0 auto;
-    width: 100%;
-    padding: 0 40px; /* Match navbar padding */
+/* --- GLOBAL RESETS --- */
+* {
+    margin: 0;
+    padding: 0;
     box-sizing: border-box;
-    margin-top: 80px; /* Offset for fixed navbar */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* ================= NAVBAR (Minor Tweaks) ================= */
-.nav-container {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.2); /* Lighter navbar background bc header is darker now */
-  backdrop-filter: blur(10px); /* Modern frosted glass effect */
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 1000;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.nav-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 40px;
-  height: 80px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.navbarlogo {
-  font-size: 28px; /* Slightly bigger */
-  color: white;
-  font-weight: 800;
-  letter-spacing: 1px;
-  z-index: 1002;
-}
-
-/* ... (Keep your existing .header-ul, .headerlabel, .headerlink, .hamburger styles) ... */
-
-.headerbtn {
-    /* Existing top button style */
-  background-color: rgb(209, 19, 82);
-  height: 40px;
-  padding: 0 25px;
-  font-size: 15px;
-  color: white;
-  border-radius: 30px; /* More modern rounded corners */
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  transition: 0.3s;
-}
-.headerbtn:hover { background-color: rgb(235, 45, 105); }
-
-
-/* ================= IMPROVED HERO SECTION TYPOGRAPHY ================= */
-.herosection {
-  text-align: left; /* Change from center to left aligned */
-  max-width: 700px; /* Restrict width for better readability */
-  color: white;
-}
-
-/* 1. The Tagline */
-.hero-tagline {
-  font-size: 16px;
-  color: rgb(209, 19, 82); /* Accent color */
-  font-weight: 700;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  margin-bottom: 15px;
-  display: inline-block;
-}
-
-/* 2. The Main Title */
-.hero-title {
-  font-size: 70px; /* Much larger */
-  font-weight: 800;
-  line-height: 1.1;
-  margin: 0;
-  margin-bottom: 25px;
-}
-.Herop { color: rgb(209, 19, 82); }
-
-/* 3. The Description */
-.hero-description {
-    font-size: 18px;
-    line-height: 1.6;
-    color: rgba(255, 255, 255, 0.8); /* Slightly transparent white */
-    margin-bottom: 40px;
-    max-width: 90%;
-}
-
-/* ================= HERO BUTTONS ================= */
-.hero-btns {
+/* --- HEADER CONTAINER --- */
+.h-hero-container {
+    width: 100%;
+    /* Use a high quality hotel image here */
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed; /* Parallax effect */
+    min-height: 100vh;
     display: flex;
-    gap: 20px; /* Space between buttons */
+    flex-direction: column;
+    position: relative;
 }
 
-.btn-primary, .btn-secondary {
-    padding: 15px 35px;
-    border-radius: 30px;
-    font-size: 16px;
+/* --- NAVBAR STYLES --- */
+.h-nav-container {
+    width: 100%;
+    padding: 20px 50px;
+    background: rgba(0, 0, 0, 0.2); /* Transparent dark background */
+    backdrop-filter: blur(5px);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.h-nav-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1300px;
+    margin: 0 auto;
+}
+
+.h-navbar-logo {
+    color: #fff;
+    font-size: 28px;
     font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s ease;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-/* Main Pink Button */
-.btn-primary {
-    background-color: rgb(209, 19, 82);
-    color: white;
-    border: 2px solid rgb(209, 19, 82);
-}
-.btn-primary:hover {
-    background-color: transparent;
-    color: rgb(209, 19, 82);
+.h-nav-menu {
+    display: flex;
+    list-style: none;
+    gap: 30px;
 }
 
-/* Secondary Outline Button */
-.btn-secondary {
-    background-color: transparent;
-    color: white;
-    border: 2px solid rgba(255, 255, 255, 0.5);
+.h-nav-item a {
+    text-decoration: none;
+    color: #e0e0e0;
+    font-size: 16px;
+    font-weight: 500;
+    transition: color 0.3s;
 }
-.btn-secondary:hover {
-    border-color: white;
+
+.h-nav-item a:hover {
+    color: #fca311; /* Gold accent color */
+}
+
+/* Desktop Buttons */
+.h-nav-actions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.h-login-btn {
+    background-color: #fca311; 
+    padding: 8px 20px; 
+    border-radius: 5px; 
+    color: #14213d;
+    text-decoration: none;
+    font-weight: bold;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.h-login-btn:hover {
+    transform: translateY(-2px);
+    background-color: #e5940e;
+}
+
+/* --- HERO TEXT SECTION --- */
+.h-hero-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 20px;
+    margin-top: 0;       /* Reset margin */
+    padding-top: 150px; /* Slight lift to account for search bar at bottom */
+}
+
+.h-hero-tagline {
+    color: #fca311;
+    font-size: 14px;
+    letter-spacing: 3px;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.h-hero-title {
+    font-size: 3.5rem;
+    color: white;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 20px;
+}
+
+.h-hero-title .h-highlight {
+    color: #fca311; /* Gold */
+    font-style: italic;
+}
+
+.h-hero-desc {
+    color: #d1d5db;
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto 40px auto;
+    line-height: 1.6;
+}
+
+/* --- BOOKING WIDGET --- */
+.h-booking-container {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 60px; /* Space from bottom */
+}
+
+.h-booking-form {
     background-color: white;
-    color: black;
+    padding: 20px 30px;
+    border-radius: 12px;
+    display: flex;
+    align-items: flex-end; /* Align inputs to button */
+    gap: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    max-width: 1100px;
+    width: 100%;
+    flex-wrap: wrap; /* Allows stacking on smaller screens */
 }
 
-/* ================= ANIMATION ================= */
-.fade-in-up {
-    animation: fadeInUp 1s ease-out forwards;
-    opacity: 0; /* Start hidden */
-    transform: translateY(30px); /* Start slightly down */
+.h-input-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1; /* Equal width */
+    min-width: 150px;
 }
+
+.h-small-group {
+    flex: 0.5;
+    min-width: 80px;
+}
+
+.h-input-group label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.h-input-group input, 
+.h-input-group select {
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 16px;
+    color: #1f2937;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.3s;
+}
+
+.h-input-group input:focus, 
+.h-input-group select:focus {
+    border-color: #fca311;
+}
+
+.h-search-btn {
+    background-color: #14213d; /* Dark Blue */
+    color: white;
+    border: none;
+    padding: 13px 30px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    height: 48px; /* Match input height */
+    flex: 0.8;
+}
+
+.h-search-btn:hover {
+    background-color: #fca311;
+    color: #14213d;
+}
+
+/* --- ANIMATIONS --- */
+.h-fade-in-up {
+    animation: fadeInUp 0.8s ease-out forwards;
+    opacity: 0;
+    transform: translateY(30px);
+}
+
+.h-delay-200 { animation-delay: 0.2s; }
 
 @keyframes fadeInUp {
     to {
@@ -166,208 +222,62 @@ body {
     }
 }
 
-/* ================= RESPONSIVE TWEAKS ================= */
-@media (max-width: 1024px) {
-    .hero-title { font-size: 55px; }
-}
+/* --- MOBILE RESPONSIVENESS --- */
+.h-hamburger { display: none; cursor: pointer; }
+.h-mobile-only { display: none; }
+.h-desktop-only { display: flex; }
 
-@media (max-width: 768px) {
-    /* Center everything again on mobile */
-    .header { /* Revert gradient for mobile if needed, or keep it */
-       background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('../images/header.jpg');
-       background-position: center;
-       background-size: cover;
-       align-items: center;
-    }
-
-    .hero-content-wrapper {
-        padding: 0 20px;
-        margin-top: 0; /* Remove offset */
-    }
+@media (max-width: 900px) {
+    .h-nav-container { padding: 15px 20px; }
+    .h-hero-title { font-size: 2.5rem; }
     
-    .herosection {
-        text-align: center; /* Back to center on mobile */
-        margin: 0 auto;
-    }
-
-    .hero-tagline { font-size: 14px; }
-    .hero-title { font-size: 42px; }
-    .hero-description { font-size: 16px; margin-left: auto; margin-right: auto;}
-
-    .hero-btns {
-        justify-content: center; /* Center buttons */
-        flex-direction: column; /* Stack buttons on small phones */
+    /* Booking Widget stacks on tablet */
+    .h-booking-form {
         gap: 15px;
-        max-width: 300px;
-        margin: 0 auto;
+    }
+    .h-input-group { flex: 1 1 40%; } /* 2 per row */
+}
+
+@media (max-width: 768px) {
+    .h-hamburger { display: block; }
+    .h-desktop-only { display: none; }
+    .h-mobile-only { display: block; }
+
+    .h-nav-menu {
+        position: fixed;
+        left: -100%;
+        top: 70px;
+        flex-direction: column;
+        background-color: #14213d;
+        width: 100%;
+        text-align: center;
+        transition: 0.3s;
+        padding: 20px 0;
+        z-index: 100;
+    }
+
+    .h-nav-menu.active { left: 0; }
+
+    .h-bar {
+        display: block;
+        width: 25px;
+        height: 3px;
+        margin: 5px auto;
+        background-color: white;
+        transition: all 0.3s ease-in-out;
+    }
+
+    .h-bar.active:nth-child(2) { opacity: 0; }
+    .h-bar.active:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+    .h-bar.active:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+    .h-booking-form {
+        flex-direction: column; /* Stack completely on mobile */
+        align-items: stretch;
     }
     
-    .btn-primary, .btn-secondary {
+    .h-search-btn {
         width: 100%;
+        margin-top: 10px;
     }
-
-    .desktop-only { display: none; } /* Hide top nav button on mobile */
-}
-
-/* ================= DESKTOP NAV ITEM DESIGN ================= */
-.header-ul {
-  display: flex;
-  gap: 40px; /* Space between items */
-  list-style: none;
-  align-items: center;
-}
-
-.headerlabel {
-  position: relative; /* Required for the underline animation */
-  font-size: 16px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  padding: 5px 0;
-  transition: color 0.3s ease; /* Smooth text color change */
-}
-
-/* The Styles for the React Link inside the li */
-.headerlink {
-  text-decoration: none;
-  color: inherit; /* Inherits the color from headerlabel */
-}
-
-/* --- THE HOVER ANIMATION --- */
-
-/* 1. Create the underline (hidden by default) */
-.headerlabel::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: -2px; /* Place it slightly below text */
-  left: 50%;
-  background-color: rgb(209, 19, 82); /* Pink Accent */
-  transition: all 0.3s ease-in-out;
-  transform: translateX(-50%); /* Centers the starting point */
-}
-
-/* 2. Hover State */
-.headerlabel:hover {
-  color: white; /* Make text pure white */
-  text-shadow: 0 0 10px rgba(209, 19, 82, 0.5); /* Subtle glow */
-}
-
-.headerlabel:hover::after {
-  width: 100%; /* Expands the line to full width */
-}
-
-/* ================= MOBILE NAV ITEM DESIGN ================= */
-@media (max-width: 768px) {
-  /* On mobile, we want big clickable areas, not underlines */
-  
-  .headerlabel {
-    font-size: 20px;
-    font-weight: 500;
-    width: 80%; /* Limits width */
-    margin: 0 auto; /* Centers it */
-    padding: 15px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Divider line */
-    text-align: center;
-  }
-
-  /* Remove desktop underline effect on mobile */
-  .headerlabel::after {
-    display: none;
-  }
-
-  /* Mobile Hover: Light background highlight */
-  .headerlabel:hover {
-    background-color: rgba(255, 255, 255, 0.1); 
-    border-radius: 8px;
-    color: rgb(209, 19, 82);
-    border-bottom-color: transparent;
-    text-shadow: none;
-  }
-}
-
-/* ================= NAV CONTAINER & HAMBURGER ================= */
-.nav-container {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.2); /* Semi-transparent background */
-  backdrop-filter: blur(10px); /* Modern blur effect */
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 1000;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.nav-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 40px;
-  height: 80px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-/* --- Hamburger Icon (Hidden on Desktop) --- */
-.hamburger {
-  display: none;
-  cursor: pointer;
-  z-index: 1002; /* Must be higher than the menu overlay */
-}
-
-.bar {
-  display: block;
-  width: 25px;
-  height: 3px;
-  margin: 5px auto;
-  background-color: white;
-  transition: all 0.3s ease-in-out;
-  border-radius: 3px;
-}
-
-/* Hamburger Animation (Turn into X) */
-.bar.active:nth-child(2) { opacity: 0; }
-.bar.active:nth-child(1) { transform: translateY(8px) rotate(45deg); }
-.bar.active:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
-
-
-/* ================= MOBILE MENU LOGIC ================= */
-@media (max-width: 768px) {
-  .hamburger {
-    display: block; /* Show hamburger only on mobile */
-  }
-
-  /* 1. Default State: Hidden off-screen */
-  .header-ul {
-    position: fixed;
-    top: 0;
-    left: -100%; /* Hides menu to the left */
-    width: 100%;
-    height: 100vh; /* Full screen height */
-    background-color: rgba(0, 0, 0, 0.95); /* Solid dark background */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    transition: 0.4s ease-in-out; /* Smooth slide animation */
-    z-index: 1001;
-    gap: 40px; /* Space between links */
-  }
-
-  /* 2. Active State: Slide in (Triggered by React) */
-  .header-ul.active {
-    left: 0; /* Brings menu onto screen */
-  }
-
-  /* Mobile Text Styling */
-  .headerlabel {
-    font-size: 24px;
-    font-weight: 600;
-  }
-
-  /* Hide the Desktop "Book Now" button on mobile */
-  .desktop-only {
-    display: none;
-  }
 }

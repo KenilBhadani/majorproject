@@ -1,5 +1,6 @@
+// src/pages/Login.jsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import "../Componentcss/Login.css";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -37,9 +38,11 @@ export default function Login() {
         throw new Error(data.message || "Login failed");
       }
 
+      // Store token
       localStorage.setItem("token", data.token);
 
-      navigate("/Herosection"); // or /dashboard
+      // Navigate to Home
+      navigate("/"); 
     } catch (err) {
       setError(err.message);
     } finally {
@@ -48,54 +51,63 @@ export default function Login() {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <h1 className="login-title">Welcome Back</h1>
+    <div className="login-split-layout">
+      
+      {/* LEFT SIDE: FORM */}
+      <div className="login-form-side">
+        <div className="login-form-container">
+          
+          <div className="login-header">
+            <h1 className="login-title">Welcome Back</h1>
+            <p className="login-subtitle">Please enter your details to sign in.</p>
+          </div>
 
-        {error && <div className="login-alert login-alert-error">{error}</div>}
+          {error && <div className="login-alert login-error">{error}</div>}
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <label className="login-label">
-            Email
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              className="login-input"
-              placeholder="name@example.com"
-            />
-          </label>
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="login-input-group">
+              <label>Email Address</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                className="login-input"
+                placeholder="name@example.com"
+              />
+            </div>
 
-          <label className="login-label">
-            Password
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              className="login-input"
-              placeholder="Enter password"
-            />
-          </label>
+            <div className="login-input-group">
+              <label>Password</label>
+              <input
+                type="password"
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                className="login-input"
+                placeholder="Enter password"
+              />
+            </div>
 
-          <button className="login-btn" disabled={loading}>
-            {loading ? "Signing in..." : "Login"}
-          </button>
-        </form>
-
-        <div className="login-footer">
-          <span>
-            Don’t have an account?
-            <button
-              className="link-btn"
-              onClick={() => navigate("/register")}
-            >
-              Register
+            <button className="login-btn" disabled={loading}>
+              {loading ? "Signing in..." : "Login"}
             </button>
-          </span>
+          </form>
+
+          <div className="login-footer">
+            <p>Don't have an account? <Link to="/register" className="login-link">Sign up</Link></p>
+          </div>
         </div>
       </div>
- </div>
-);
+
+      {/* RIGHT SIDE: IMAGE */}
+      <div className="login-image-side">
+        <div className="login-overlay">
+          <h2 className="login-brand-title">👑 RoyalPark</h2>
+          <p className="login-brand-subtitle">Your luxury escape awaits. Log in to manage your bookings and preferences.</p>
+        </div>
+      </div>
+
+    </div>
+  );
 }

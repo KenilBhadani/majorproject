@@ -1,66 +1,150 @@
 import React, { useState } from 'react';
-import '../Componentcss/index.css';
+import '../Componentcss/index.css'; 
 import { Link } from 'react-router-dom';
 
 function Horosection() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // State for the booking search
+  const [bookingData, setBookingData] = useState({
+    checkIn: '',
+    checkOut: '',
+    roomType: 'deluxe',
+    guests: 1
+  });
+
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
-  return (
-    <div>
-      <header className="header">
-        {/* ===== NAVBAR (Unchanged from previous version) ===== */}
-        <div className="nav-container">
-          <div className="nav-bar">
-            <div className="navbarlogo">RoyalPark</div>
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setBookingData({ ...bookingData, [name]: value });
+  };
 
-            <div className="hamburger" onClick={toggleMenu}>
-              <span className={isMenuOpen ? "bar active" : "bar"}></span>
-              <span className={isMenuOpen ? "bar active" : "bar"}></span>
-              <span className={isMenuOpen ? "bar active" : "bar"}></span>
+  const handleSearch = (e) => {
+    e.preventDefault();
+    console.log("Searching availability for:", bookingData);
+  };
+
+  return (
+    <div className="h-hero-container">
+      <header className="h-header">
+        
+        {/* ===== NAVBAR ===== */}
+        <div className="h-nav-container">
+          <div className="h-nav-bar">
+            <div className="h-navbar-logo">
+                <span className="h-logo-icon">👑</span> RoyalPark
             </div>
 
-            <ul className={`header-ul ${isMenuOpen ? "active" : ""}`}>
-              <li className="headerlabel">Home</li>
-              <li className="headerlabel">About</li>
-              <li className="headerlabel">Services</li>
-              <li className="headerlabel">Explore</li>
-              <li className="headerlabel">Contact</li>
-              <li className="headerlabel">
-                <Link to="/login" className="headerlink">Login</Link>
+            <div className="h-hamburger" onClick={toggleMenu}>
+              <span className={isMenuOpen ? "h-bar active" : "h-bar"}></span>
+              <span className={isMenuOpen ? "h-bar active" : "h-bar"}></span>
+              <span className={isMenuOpen ? "h-bar active" : "h-bar"}></span>
+            </div>
+
+            <ul className={`h-nav-menu ${isMenuOpen ? "active" : ""}`}>
+              <li className="h-nav-item"><Link to="/">Home</Link></li>
+              <li className="h-nav-item"><Link to="/aboutpage">About</Link></li>
+              <li className="h-nav-item"><Link to="/services">Services</Link></li>
+              <li className="h-nav-item"><Link to="/rooms">Explore</Link></li>
+              <li className="h-nav-item"><Link to="/contact">Contact</Link></li>
+              {/* Mobile Login Link */}
+              <li className="h-nav-item h-mobile-only">
+                <Link to="/login">Login</Link>
               </li>
             </ul>
-             {/* Optional: Hide this top button on desktop since we added big ones below */}
-            <button className="headerbtn desktop-only"><Link to="/bookingpage" className='headerlink'>Book Now</Link></button>
+            
+            {/* ===== UPDATED ACTIONS SECTION ===== */}
+            <div className="h-nav-actions h-desktop-only">
+                <Link to="/login" className="h-login-btn">
+                    Login
+                </Link>
+            </div>
           </div>
         </div>
 
-        {/* ===== IMPROVED HERO SECTION ===== */}
-        <div className="hero-content-wrapper">
-            <div className="herosection fade-in-up">
-            {/* 1. Changed firstp to a tagline style */}
-            <p className="hero-tagline">WELCOME TO ROYALPARK</p>
-
-            {/* 2. Main Headline */}
-            <h1 className="hero-title">
-                A Place Where Comfort Feels Like <span className="Herop">Home.</span>
+        {/* ===== HERO CONTENT ===== */}
+        <div className="h-hero-wrapper">
+          <div className="h-hero-text h-fade-in-up">
+            <p className="h-hero-tagline">WELCOME TO ROYALPARK</p>
+            <h1 className="h-hero-title">
+              A Place Where Comfort Feels Like <span className="h-highlight">Home.</span>
             </h1>
-
-            {/* 3. New Description Paragraph */}
-            <p className="hero-description">
-                Experience luxury accommodation redefined. Whether you're travelling for business or leisure, enjoy a seamless stay tailored to your needs in the heart of the city.
+            <p className="h-hero-desc">
+              Experience luxury accommodation redefined. Whether you're travelling for business or leisure, enjoy a seamless stay tailored to your needs.
             </p>
-
-            {/* 4. New CTA Buttons */}
-            <div className="hero-btns">
-                <button className="btn-primary"><Link to="/bookingpage" className='headerlink'>Book Your Stay</Link></button>
-                <button className="btn-secondary">Take A Tour</button>
-            </div>
-            </div>
+          </div>
         </div>
+
+        {/* ===== SEARCH / AVAILABILITY WIDGET ===== */}
+        <div className="h-booking-container h-fade-in-up h-delay-200">
+            <form className="h-booking-form" onSubmit={handleSearch}>
+                
+                {/* Check In */}
+                <div className="h-input-group">
+                    <label htmlFor="checkIn">Check In</label>
+                    <input 
+                        type="date" 
+                        id="checkIn" 
+                        name="checkIn" 
+                        value={bookingData.checkIn}
+                        onChange={handleInputChange}
+                        required
+                    />
+                </div>
+
+                {/* Check Out */}
+                <div className="h-input-group">
+                    <label htmlFor="checkOut">Check Out</label>
+                    <input 
+                        type="date" 
+                        id="checkOut" 
+                        name="checkOut" 
+                        value={bookingData.checkOut}
+                        onChange={handleInputChange}
+                        required
+                    />
+                </div>
+
+                {/* Room Type */}
+                <div className="h-input-group">
+                    <label htmlFor="roomType">Room Type</label>
+                    <select 
+                        id="roomType" 
+                        name="roomType" 
+                        value={bookingData.roomType} 
+                        onChange={handleInputChange}
+                    >
+                        <option value="deluxe">Deluxe Room</option>
+                        <option value="suite">Royal Suite</option>
+                        <option value="family">Family Room</option>
+                        <option value="standard">Standard Room</option>
+                    </select>
+                </div>
+
+                {/* Guests */}
+                <div className="h-input-group h-small-group">
+                    <label htmlFor="guests">Members</label>
+                    <input 
+                        type="number" 
+                        id="guests" 
+                        name="guests" 
+                        min="1" 
+                        max="10" 
+                        value={bookingData.guests}
+                        onChange={handleInputChange}
+                    />
+                </div>
+
+                {/* Search Button */}
+                <button type="submit" className="h-search-btn">
+                    Check Availability
+                </button>
+            </form>
+        </div>
+
       </header>
     </div>
   );
