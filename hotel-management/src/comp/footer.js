@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import "../Componentcss/footer.css";
 import { FaFacebook, FaInstagram, FaYoutube, FaTwitter } from "react-icons/fa";
 
@@ -18,7 +19,7 @@ function Footer() {
             getaway truly extraordinary.
           </p>
 
-          <button className="footer-btn">Book Now</button>
+          <button className="footer-btn"><Link to="/BookingFrompage">Book Now</Link></button>
         </div>
 
         {/* COLUMN 2 */}

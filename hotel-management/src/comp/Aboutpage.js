@@ -34,7 +34,7 @@ function AboutPage() {
           className="abt-hero-img"
         />
         <div className="abt-hero-overlay">
-          <h1 className="abt-hero-title">Our Story</h1>
+          <h1 className="abt-hero-title">About Us</h1>
         </div>
       </div>
 

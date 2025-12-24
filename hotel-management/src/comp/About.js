@@ -1,5 +1,6 @@
 import '../Componentcss/About.css';
-import Hero from '../images/traveling.jpg';         // Main Image
+import Hero from '../images/traveling.jpg';   
+import { Link } from 'react-router-dom';      // Main Image
 // *** ACTION REQUIRED: Please add a second image for the grid effect ***
 import SecondaryImg from '../images/traveling2.jpg'; // Replace this with a different image path later!
 
@@ -27,7 +28,7 @@ function AboutUs() {
             excitement, and peace of mind.
           </p>
 
-          <button className="about-btn-premium">Explore Our Story</button>
+          <button className="about-btn-premium"><Link to="/explore">Explore Our Story</Link></button>
         </div>
 
         {/* --- Right Side: 4:3 Photo Grid Overlap --- */}

@@ -45,10 +45,10 @@ function Horosection() {
             </div>
 
             <ul className={`h-nav-menu ${isMenuOpen ? "active" : ""}`}>
-              <li className="h-nav-item"><Link to="/">Home</Link></li>
+              <li className="h-nav-item"><Link to="*">Home</Link></li>
               <li className="h-nav-item"><Link to="/aboutpage">About</Link></li>
               <li className="h-nav-item"><Link to="/services">Services</Link></li>
-              <li className="h-nav-item"><Link to="/rooms">Explore</Link></li>
+              <li className="h-nav-item"><Link to="/bookingpage">Explore</Link></li>
               <li className="h-nav-item"><Link to="/contact">Contact</Link></li>
               {/* Mobile Login Link */}
               <li className="h-nav-item h-mobile-only">

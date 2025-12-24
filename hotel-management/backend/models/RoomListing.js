@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { GiStockpiles } = require("react-icons/gi");
 
 const RoomListingSchema = new mongoose.Schema(
   {
@@ -16,7 +15,8 @@ const RoomListingSchema = new mongoose.Schema(
     roomType: {
         type: String,
         required: true,
-        enum: ['Single', 'Double', 'Suite', 'Deluxe']
+        // Added 'erg' so your existing data doesn't crash the app
+        enum: ['Single', 'Double', 'Suite', 'Deluxe', 'erg']
     },
     pricePerNight: {
         type: Number,
@@ -34,18 +34,27 @@ const RoomListingSchema = new mongoose.Schema(
     amenities: [{
         type: String
     }],
+    
+    // Added 'stock' because it exists in your database
+    stock: {
+        type: Number
+    },
+
     AvailabilityStatus: {
         type: String,
-        required: true,
+        // Removed 'required: true' because your current data is missing this field
         enum: ['Available', 'Booked', 'Maintenance'],
         default: 'Available'
     },
-    isactive: {
+    
+    // FIXED: Changed 'isactive' to 'isActive' (Capital A) to match your Database
+    isActive: {
         type: Boolean,
         default: true
     }
   },
   { timestamps: true }
 );
-module.exports = mongoose.model("RoomListing", RoomListingSchema);
 
+// The 3rd argument "rooms" forces Mongoose to use your specific "rooms" collection
+module.exports = mongoose.model("Room", RoomListingSchema, "rooms");

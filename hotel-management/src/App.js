@@ -19,8 +19,9 @@ import OffersHero from "./comp/Offer";
 import Events from "./comp/Event";
 import AboutPage from "./comp/Aboutpage";
 import Contact from "./comp/Contact";
-import BookingSteps from "./comp/Bookingstep";
-import RoomListing from "./comp/roombooking";
+import EXPO from "./comp/expo";
+import Services from "./comp/services";
+
 
 function App() {
   return (
@@ -38,8 +39,6 @@ function App() {
             <Events />
             <OffersHero />
             <Footer />
-            <RoomListing />
-<BookingSteps activeStep={1} />
           </>
         }
       />
@@ -47,6 +46,8 @@ function App() {
       {/* Header link of hero section */}
       <Route path="/contact" element={<Contact />} />
       <Route path="/aboutpage" element={<AboutPage />} />
+      <Route path="/explore" element={<EXPO />} />
+      <Route path="/services" element={<Services />} />
 
        <Route path="/BookingFrompage" element={<Bookformpage />} />
       {/* ====Booking page ===== */}
@@ -57,7 +58,7 @@ function App() {
       <Route path="/login" element={<Login />} />
 
       {/* ===== Safety Redirect ===== */}
-      <Route path="* " element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
