@@ -1,50 +1,91 @@
-import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import "../Admin/Manage_Room.css";
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function PaymentReports() {
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+
   const [month, setMonth] = useState(
-    new Date().toISOString().slice(0, 7) // YYYY-MM
+    new Date().toISOString().slice(0, 7)
   );
+
   const [summary, setSummary] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(false);
+
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchSummary();
-    fetchTransactions();
-    // eslint-disable-next-line
-  }, [month]);
+  /* ================= FETCH SUMMARY ================= */
 
-  async function fetchSummary() {
+  const fetchSummary = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await fetch(
-        `${API}/api/admin/payments/summary?month=${month}`
+        `${API}/api/admin/payments/summary?month=${month}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
       );
+
+      if (!res.ok) throw new Error("Failed to load summary");
+
       const data = await res.json();
       setSummary(data);
-      setError("");
-    } catch {
-      setError("Failed to load payment summary");
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError(err.message || "Failed to load payment summary");
+      setSummary(null);
     }
-  }
+  }, [month, token]);
 
-  async function fetchTransactions() {
+  /* ================= FETCH TRANSACTIONS ================= */
+
+  const fetchTransactions = useCallback(async () => {
     try {
       const res = await fetch(
-        `${API}/api/admin/payments/transactions`
+        `${API}/api/admin/payments/transactions?month=${month}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
       );
+
+      if (!res.ok) {
+        setTransactions([]);
+        return;
+      }
+
       const data = await res.json();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : []);
     } catch {
       setTransactions([]);
     }
+  }, [month, token]);
+
+  /* ================= EFFECT ================= */
+
+  useEffect(() => {
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    Promise.all([fetchSummary(), fetchTransactions()])
+      .finally(() => setLoading(false));
+  }, [month, fetchSummary, fetchTransactions, token, navigate]);
+
+  /* ================= LOGOUT ================= */
+
+  function handleLogout() {
+    localStorage.removeItem("token");
+    navigate("/login");
   }
 
   return (
@@ -66,23 +107,26 @@ function PaymentReports() {
       <div className="main">
         <div className="top-bar">
           <h2>Payment & Reports</h2>
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <label>Month</label>
             <input
               type="month"
               value={month}
               onChange={e => setMonth(e.target.value)}
             />
-            <button className="logout-btn">Logout</button>
+            <button className="logout-btn" onClick={handleLogout}>
+              Logout
+            </button>
           </div>
         </div>
 
         {error && <p className="error-text">{error}</p>}
 
-        {/* ===== SUMMARY CARDS ===== */}
+        {/* ===== SUMMARY ===== */}
         {summary && (
           <div className="card">
             <h3 className="card-title">Monthly Summary</h3>
+
             <div className="form-row">
               <div>
                 <p><b>Total Revenue</b></p>

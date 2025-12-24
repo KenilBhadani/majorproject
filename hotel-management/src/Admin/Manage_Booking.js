@@ -1,26 +1,45 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "../Admin/Manage_Room.css";
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function ManageBookings() {
+  const navigate = useNavigate();
+
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const token = localStorage.getItem("token");
+
   useEffect(() => {
+    if (!token) {
+      navigate("/login");
+      return;
+    }
     fetchBookings();
   }, []);
 
   async function fetchBookings() {
     try {
       setLoading(true);
-      const res = await fetch(`${API}/api/admin/bookings`);
+      setError("");
+
+      const res = await fetch(`${API}/api/admin/bookings`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to load bookings");
+      }
+
       const data = await res.json();
       setBookings(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError("Failed to load bookings");
+      setError(err.message || "Error loading bookings");
     } finally {
       setLoading(false);
     }
@@ -29,37 +48,51 @@ function ManageBookings() {
   async function updateStatus(id, action) {
     if (!window.confirm(`Confirm ${action}?`)) return;
 
-    await fetch(`${API}/api/admin/bookings/${id}/${action}`, {
-      method: "PUT"
-    });
+    try {
+      const res = await fetch(
+        `${API}/api/admin/bookings/${id}/${action}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
 
-    fetchBookings();
+      if (!res.ok) {
+        throw new Error("Action failed");
+      }
+
+      fetchBookings();
+    } catch (err) {
+      alert(err.message || "Update failed");
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem("token");
+    navigate("/login");
   }
 
   function statusBadge(status) {
+    const styles = {
+      Upcoming: { bg: "#e0e7ff", color: "#3730a3" },
+      "Checked-in": { bg: "#dcfce7", color: "#166534" },
+      "Checked-out": { bg: "#f3f4f6", color: "#374151" },
+      Cancelled: { bg: "#fee2e2", color: "#991b1b" }
+    };
+
+    const s = styles[status] || styles.Cancelled;
+
     return (
       <span
         style={{
           padding: "4px 10px",
           borderRadius: "999px",
           fontSize: "12px",
-          fontWeight: "600",
-          background:
-            status === "Upcoming"
-              ? "#e0e7ff"
-              : status === "Checked-in"
-              ? "#dcfce7"
-              : status === "Checked-out"
-              ? "#f3f4f6"
-              : "#fee2e2",
-          color:
-            status === "Upcoming"
-              ? "#3730a3"
-              : status === "Checked-in"
-              ? "#166534"
-              : status === "Checked-out"
-              ? "#374151"
-              : "#991b1b"
+          fontWeight: 600,
+          background: s.bg,
+          color: s.color
         }}
       >
         {status}
@@ -86,7 +119,9 @@ function ManageBookings() {
       <div className="main">
         <div className="top-bar">
           <h2>Manage Bookings</h2>
-          <button className="logout-btn">Logout</button>
+          <button className="logout-btn" onClick={logout}>
+            Logout
+          </button>
         </div>
 
         {error && <p className="error-text">{error}</p>}
@@ -95,10 +130,7 @@ function ManageBookings() {
           <h3 className="card-title">Bookings List</h3>
 
           {loading && <p>Loading bookings...</p>}
-
-          {!loading && bookings.length === 0 && (
-            <p>No bookings found</p>
-          )}
+          {!loading && bookings.length === 0 && <p>No bookings found</p>}
 
           {!loading && bookings.length > 0 && (
             <table className="room-table">
@@ -118,18 +150,15 @@ function ManageBookings() {
                 {bookings.map(b => (
                   <tr key={b._id}>
                     <td>
-                      {b.title} {b.firstName} {b.lastName}
+                      {b.firstName} {b.lastName}
                       <br />
                       <small>{b.mobileNo}</small>
                     </td>
 
                     <td>{b.roomType}</td>
-
                     <td>{new Date(b.checkIn).toLocaleDateString()}</td>
                     <td>{new Date(b.checkOut).toLocaleDateString()}</td>
-
                     <td>₹{b.totalAmount}</td>
-
                     <td>{statusBadge(b.bookingStatus)}</td>
 
                     <td>

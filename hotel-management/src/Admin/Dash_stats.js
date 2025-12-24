@@ -3,7 +3,7 @@ import {Link } from "react-router-dom";
 import '../Admin/navbar.css';
  function DashboardStats() {         // <- named export
   return(
-               <div className="admin-container">
+        <div className="admin-container">
         <div className="sidebar">
            <h1>Admin Panel</h1>
             <Link to="/dashboard">Dashboard</Link>
