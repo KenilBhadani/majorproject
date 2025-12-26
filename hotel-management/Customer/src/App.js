@@ -1,5 +1,12 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+
+// Admin Dashboard components (YOUR PART)
+import ManageBookings from "./Admin/Manage_Booking";
 import Dashboard from "./Admin/admin_dashboard";
+import ManageRoom from "./Admin/Manage_Room";
+import ManageUser from "./Admin/Manage_User";
+import PaymentReports from "./Admin/Payment_Report";
+import DashboardStats from "./Admin/Dash_stats";
 
 import Bookingpage from "./comp/Bookingpage";
 import Bookformpage from "./comp/BookForm";
@@ -22,6 +29,7 @@ import AboutPage from "./comp/Aboutpage";
 import Contact from "./comp/Contact";
 import EXPO from "./comp/expo";
 import Services from "./comp/services";
+import { MdAirlineSeatLegroomExtra } from "react-icons/md";
 
 
 function App() {
@@ -49,17 +57,22 @@ function App() {
       <Route path="/aboutpage" element={<AboutPage />} />
       <Route path="/explore" element={<EXPO />} />
       <Route path="/services" element={<Services />} />
-      
-      
-     <Route
+
+      {/* Adminside routes */}
+     {/* <Route
       path="/admin"
        element={
        localStorage.getItem("token")
          ? <Dashboard />
          : <Navigate to="/login" />
         }
-      />
-
+      /> */}
+      <Route path="/admin/dashboard" element={<Dashboard />} />
+      <Route path="/admin/Managebooking" element={<ManageBookings />} />
+      <Route path="/admin/ManageRoom" element ={<ManageRoom />} />
+      <Route path="/admin/ManageUser" element ={<ManageUser />} />
+      <Route path="/admin/ManagePayment" element ={<PaymentReports />} />
+      <Route path="/admin/DashboardStats" element ={<DashboardStats />} />
 
 
        <Route path="/BookingFrompage" element={<Bookformpage />} />

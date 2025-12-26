@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import "../Admin/admin_dashboard.css";
 import { ResponsiveContainer, LineChart, Line } from "recharts";
@@ -99,11 +99,11 @@ export default function Dashboard() {
 
   /* ================= EFFECT ================= */
 
-  useEffect(() => {
-    if (!token) return; // routing will handle redirect
-    fetchOverview(selectedMonth);
-    fetchRecentBookings();
-  }, [selectedMonth, fetchOverview, fetchRecentBookings, token]);
+  // useEffect(() => {
+  //   if (!token) return; // routing will handle redirect
+  //   fetchOverview(selectedMonth);
+  //   fetchRecentBookings();
+  // }, [selectedMonth, fetchOverview, fetchRecentBookings, token]);
 
   /* ================= UI ================= */
 
@@ -113,12 +113,12 @@ export default function Dashboard() {
       <aside className="sidebar">
         <h1>Admin Panel</h1>
 
-        <Link to="/admin" className="active">Dashboard</Link>
-        <Link to="/manageroom">Manage Room</Link>
-        <Link to="/managebookings">Manage Bookings</Link>
-        <Link to="/manageuser">Manage User</Link>
-        <Link to="/paymentreports">Payment & Reports</Link>
-        <Link to="/dashboardstats">Dashboard Stats</Link>
+        <Link to="/admin/dashboard" className="active">Dashboard</Link>
+        <Link to="/admin/ManageRoom">Manage Room</Link>
+        <Link to="/admin/Managebooking">Manage Bookings</Link>
+        <Link to="/admin/ManageUser">Manage User</Link>
+        <Link to="/admin/ManagePayment">Payment & Reports</Link>
+        <Link to="/admin/DashboardStats">Dashboard Stats</Link>
       </aside>
 
       {/* MAIN CONTENT */}

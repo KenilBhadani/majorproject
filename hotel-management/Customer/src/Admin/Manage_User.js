@@ -96,12 +96,12 @@ function ManageUser() {
       {/* SIDEBAR */}
       <div className="sidebar">
         <h1>Admin Panel</h1>
-        <Link to="/dashboard">Dashboard</Link>
-        <Link to="/manageroom">Manage Room</Link>
-        <Link to="/managebookings">Manage Bookings</Link>
-        <Link to="/manageuser" className="active">Manage User</Link>
-        <Link to="/paymentreports">Payment & Reports</Link>
-        <Link to="/dashboardstats">Dashboard Stats</Link>
+        <Link to="/admin/dashboard">Dashboard</Link>
+        <Link to="/admin/ManageRoom">Manage Room</Link>
+        <Link to="/admin/ManageBooking">Manage Bookings</Link>
+        <Link to="/admin/ManageUser" className="active">Manage User</Link>
+        <Link to="/admin/ManagePayment">Payment & Reports</Link>
+        <Link to="/admin/DashboardStats">Dashboard Stats</Link>
       </div>
 
       {/* MAIN */}

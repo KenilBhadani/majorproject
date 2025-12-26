@@ -150,12 +150,12 @@ function ManageRoom() {
       {/* SIDEBAR */}
       <div className="sidebar">
         <h1>Admin Panel</h1>
-        <Link to="/dashboard">Dashboard</Link>
-        <Link to="/manageroom" className="active">Manage Room</Link>
-        <Link to="/managebookings">Manage Bookings</Link>
-        <Link to="/manageuser">Manage User</Link>
-        <Link to="/paymentreports">Payment & Reports</Link>
-        <Link to="/dashboardstats">Dashboard Stats</Link>
+        <Link to="/admin/dashboard">Dashboard</Link>
+        <Link to="/admin/ManageRoom" className="active">Manage Room</Link>
+        <Link to="/admin/ManageBooking">Manage Bookings</Link>
+        <Link to="/admin/ManageUser">Manage User</Link>
+        <Link to="/admin/ManagePayment">Payment & Reports</Link>
+        <Link to="/admin/DashboardStats">Dashboard Stats</Link>
       </div>
 
       {/* MAIN */}
@@ -183,8 +183,14 @@ function ManageRoom() {
 
                 <div className="form-group">
                   <label>Room Type</label>
-                  <input name="roomType" value={form.roomType} onChange={handleChange} required />
-                </div>
+                  <select name="roomType" value={form.roomType} onChange={handleChange} required>
+  <option value="">Select Room Type</option>
+  <option value="Single">Single</option>
+  <option value="Double">Double</option>
+  <option value="Suite">Suite</option>
+  <option value="Deluxe">Deluxe</option>
+</select>
+                  </div>
               </div>
 
               <div className="form-row">

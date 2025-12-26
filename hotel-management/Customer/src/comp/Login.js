@@ -1,4 +1,3 @@
-// src/pages/Login.jsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import "../Componentcss/Login.css";
@@ -38,11 +37,18 @@ export default function Login() {
         throw new Error(data.message || "Login failed");
       }
 
-      // Store token
+      // ✅ STORE AUTH DATA
       localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.user.role);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Navigate to Home
-      navigate("/"); 
+      // ✅ ROLE BASED REDIRECT
+      if (data.user.role === "admin") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/");
+      }
+
     } catch (err) {
       setError(err.message);
     } finally {
@@ -52,17 +58,21 @@ export default function Login() {
 
   return (
     <div className="login-split-layout">
-      
+
       {/* LEFT SIDE: FORM */}
       <div className="login-form-side">
         <div className="login-form-container">
-          
+
           <div className="login-header">
             <h1 className="login-title">Welcome Back</h1>
-            <p className="login-subtitle">Please enter your details to sign in.</p>
+            <p className="login-subtitle">
+              Please enter your details to sign in.
+            </p>
           </div>
 
-          {error && <div className="login-alert login-error">{error}</div>}
+          {error && (
+            <div className="login-alert login-error">{error}</div>
+          )}
 
           <form className="login-form" onSubmit={handleSubmit}>
             <div className="login-input-group">
@@ -95,8 +105,12 @@ export default function Login() {
           </form>
 
           <div className="login-footer">
-            <p>Don't have an account? <Link to="/register" className="login-link">Sign up</Link></p>
+            <p>
+              Don't have an account?
+              <Link to="/register" className="login-link"> Sign up</Link>
+            </p>
           </div>
+
         </div>
       </div>
 
@@ -104,7 +118,9 @@ export default function Login() {
       <div className="login-image-side">
         <div className="login-overlay">
           <h2 className="login-brand-title">👑 RoyalPark</h2>
-          <p className="login-brand-subtitle">Your luxury escape awaits. Log in to manage your bookings and preferences.</p>
+          <p className="login-brand-subtitle">
+            Your luxury escape awaits. Log in to manage your bookings and preferences.
+          </p>
         </div>
       </div>
 

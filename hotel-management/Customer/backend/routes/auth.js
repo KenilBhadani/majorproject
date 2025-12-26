@@ -10,6 +10,7 @@ router.post("/register", async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
 
+    // check existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -17,6 +18,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    // phone validation
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(phone)) {
       return res.status(400).json({
@@ -24,6 +26,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await User.create({
@@ -31,7 +34,8 @@ router.post("/register", async (req, res) => {
       email,
       phone,
       password: hashedPassword,
-      isActive: true // ✅ default active
+      role: "user",      // ✅ default role
+      isActive: true     // ✅ active by default
     });
 
     res.status(201).json({
@@ -41,10 +45,14 @@ router.post("/register", async (req, res) => {
     console.error(error);
 
     if (error.code === 11000) {
-      return res.status(409).json({ message: "Email already exists" });
+      return res.status(409).json({
+        message: "Email already exists"
+      });
     }
 
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message: "Server error"
+    });
   }
 });
 
@@ -53,7 +61,7 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 🔍 Find user
+    // find user
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({
@@ -61,14 +69,14 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // 🚫 BLOCK CHECK (MOST IMPORTANT)
-    if (user.isActive !== true  ) {
+    // blocked user check
+    if (user.isActive !== true) {
       return res.status(403).json({
         message: "Your account has been blocked by admin"
       });
     }
 
-    // 🔐 Password check
+    // password check
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
@@ -76,26 +84,33 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // 🔑 Create token
+    // create token
     const token = jwt.sign(
-      { userId: user._id },
+      {
+        userId: user._id,
+        role: user.role
+      },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    res.json({
+    // success response
+    res.status(200).json({
       message: "Login successful",
       token,
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message: "Server error"
+    });
   }
 });
 

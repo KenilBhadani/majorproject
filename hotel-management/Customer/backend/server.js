@@ -2,76 +2,67 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const path = require("path");
+
 const app = express();
-const roomRoutes = require("./routes/RoomListing");
+
+/* =======================
+   MIDDLEWARE
+======================= */
 app.use(cors());
 app.use(express.json());
 
-// 🔌 MongoDB Atlas connection
+/* =======================
+   MONGODB CONNECTION
+======================= */
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Atlas connected"))
   .catch(err => console.error("MongoDB connection error:", err));
 
-// --- ROUTES CONFIGURATION ---
+/* =======================
+   STATIC UPLOADS
+   (images saved in src/upload)
+======================= */
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "..", "src", "upload"))
+);
 
-// 1. Auth Routes (Existing)
+/* =======================
+   ROUTES
+======================= */
+
+// Auth
 const authRoutes = require("./routes/auth");
 app.use("/api/auth", authRoutes);
 
-// 2. Room Routes
+// Public room listing (if needed)
+const roomRoutes = require("./routes/RoomListing");
 app.use("/api/rooms", roomRoutes);
-// ----------------------------
 
+// Admin routes
+const adminRooms = require("./routes/adminRooms");
+const adminBookings = require("./routes/adminBookings");
+const adminPayments = require("./routes/adminPayments");
+const adminUsers = require("./routes/adminUsers");
+
+app.use("/api/admin/rooms", adminRooms);
+app.use("/api/admin", adminBookings);
+app.use("/api/admin/payments", adminPayments);
+app.use("/api/admin/users", adminUsers);
+
+/* =======================
+   HEALTH CHECK
+======================= */
 app.get("/", (req, res) => {
   res.send("Backend is running");
 });
 
+/* =======================
+   START SERVER
+======================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-
-
-// const express = require("express");
-// const cors = require("cors");
-// const mongoose = require("mongoose");
-// require("dotenv").config();
-
-// const adminRooms = require("./routes/adminRooms");
-// const adminBookings = require("./routes/adminBookings");
-// const adminPayments = require("./routes/adminPayments");
-// const adminUsers = require("./routes/adminUsers");
-
-// const app = express();
-// app.use(cors());
-// app.use(express.json());
-
-// // 🔹 MongoDB connection
-// mongoose
-//   .connect(process.env.MONGO_URI)
-//   .then(() => console.log("MongoDB Atlas connected"))
-//   .catch(err => console.error(err));
-
-// // 🔹 ROOM APIs
-// app.use("/api/admin/rooms", adminRooms);
-
-// // 🔹 BOOKING + DASHBOARD APIs
-// app.use("/api/admin", adminBookings);
-
-// // 🔹 PAYMENT APIs
-// app.use("/api/admin/payments", adminPayments);
-
-
-// app.use("/api/admin/users", adminUsers);
-
-// app.use("/uploads", express.static("uploads"));
-
-
-
-// // 🔹 Start server
-// const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () =>
-//   console.log(`Backend running on http://localhost:${PORT}`)
-// );
