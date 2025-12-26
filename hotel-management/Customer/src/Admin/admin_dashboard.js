@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import "../Admin/admin_dashboard.css";
 import { ResponsiveContainer, LineChart, Line } from "recharts";
 
@@ -16,7 +16,7 @@ function getLastNMonths(n = 12) {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const label = d.toLocaleString("default", {
       month: "short",
-      year: "numeric"
+      year: "numeric",
     });
     months.push({ key, label });
   }
@@ -25,13 +25,12 @@ function getLastNMonths(n = 12) {
 
 function sparklineData(days) {
   if (!Array.isArray(days)) return [];
-  return days.map(d => ({ name: d.day, value: d.count }));
+  return days.map((d) => ({ name: d.day, value: d.count }));
 }
 
 /* ================= COMPONENT ================= */
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
   const months = getLastNMonths(12);
@@ -39,37 +38,39 @@ export default function Dashboard() {
 
   const [overview, setOverview] = useState(null);
   const [recentBookings, setRecentBookings] = useState([]);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   /* ================= FETCH OVERVIEW ================= */
 
-  const fetchOverview = useCallback(async (month) => {
-    try {
-      setLoading(true);
-      setError("");
+  const fetchOverview = useCallback(
+    async (month) => {
+      try {
+        setLoading(true);
+        setError("");
 
-      const res = await fetch(
-        `${API}/api/admin/overview?month=${month}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
+        const res = await fetch(
+          `${API}/api/admin/overview?month=${month}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        }
-      );
+        );
 
-      if (!res.ok) throw new Error("Failed to load overview");
+        if (!res.ok) throw new Error("Failed to load overview");
 
-      const data = await res.json();
-      setOverview(data);
-    } catch (err) {
-      setError(err.message || "Overview fetch failed");
-      setOverview(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+        const data = await res.json();
+        setOverview(data);
+      } catch (err) {
+        setError(err.message || "Overview fetch failed");
+        setOverview(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [token]
+  );
 
   /* ================= FETCH RECENT BOOKINGS ================= */
 
@@ -79,8 +80,8 @@ export default function Dashboard() {
         `${API}/api/admin/recent-bookings?limit=6`,
         {
           headers: {
-            Authorization: `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
@@ -99,21 +100,10 @@ export default function Dashboard() {
   /* ================= EFFECT ================= */
 
   useEffect(() => {
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
+    if (!token) return; // routing will handle redirect
     fetchOverview(selectedMonth);
     fetchRecentBookings();
-  }, [selectedMonth, fetchOverview, fetchRecentBookings, token, navigate]);
-
-  /* ================= LOGOUT ================= */
-
-  function handleLogout() {
-    localStorage.removeItem("token");
-    navigate("/login");
-  }
+  }, [selectedMonth, fetchOverview, fetchRecentBookings, token]);
 
   /* ================= UI ================= */
 
@@ -123,19 +113,15 @@ export default function Dashboard() {
       <aside className="sidebar">
         <h1>Admin Panel</h1>
 
-        <Link to="/dashboard" className="active">Dashboard</Link>
+        <Link to="/admin" className="active">Dashboard</Link>
         <Link to="/manageroom">Manage Room</Link>
         <Link to="/managebookings">Manage Bookings</Link>
         <Link to="/manageuser">Manage User</Link>
         <Link to="/paymentreports">Payment & Reports</Link>
         <Link to="/dashboardstats">Dashboard Stats</Link>
-
-        <button className="logout-btn" onClick={handleLogout}>
-          Logout
-        </button>
       </aside>
 
-      {/* MAIN */}
+      {/* MAIN CONTENT */}
       <main className="main">
         <header className="top-bar">
           <div>
@@ -147,7 +133,7 @@ export default function Dashboard() {
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           >
-            {months.map(m => (
+            {months.map((m) => (
               <option key={m.key} value={m.key}>
                 {m.label}
               </option>
@@ -216,7 +202,7 @@ export default function Dashboard() {
                   <td colSpan="6">No recent bookings</td>
                 </tr>
               ) : (
-                recentBookings.map(b => (
+                recentBookings.map((b) => (
                   <tr key={b._id}>
                     <td>{b._id}</td>
                     <td>{b.guestName || "—"}</td>

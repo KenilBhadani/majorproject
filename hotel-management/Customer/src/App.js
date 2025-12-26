@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-
 import Dashboard from "./Admin/admin_dashboard";
 
 import Bookingpage from "./comp/Bookingpage";
@@ -41,7 +40,6 @@ function App() {
             <Events />
             <OffersHero />
             <Footer />
-            <Dashboard />
           </>
         }
       />
@@ -51,6 +49,18 @@ function App() {
       <Route path="/aboutpage" element={<AboutPage />} />
       <Route path="/explore" element={<EXPO />} />
       <Route path="/services" element={<Services />} />
+      
+      
+     <Route
+      path="/admin"
+       element={
+       localStorage.getItem("token")
+         ? <Dashboard />
+         : <Navigate to="/login" />
+        }
+      />
+
+
 
        <Route path="/BookingFrompage" element={<Bookformpage />} />
       {/* ====Booking page ===== */}
