@@ -1,0 +1,283 @@
+/* --- GLOBAL RESETS --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* --- HEADER CONTAINER --- */
+.h-hero-container {
+    width: 100%;
+    /* Use a high quality hotel image here */
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed; /* Parallax effect */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* --- NAVBAR STYLES --- */
+.h-nav-container {
+    width: 100%;
+    padding: 20px 50px;
+    background: rgba(0, 0, 0, 0.2); /* Transparent dark background */
+    backdrop-filter: blur(5px);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.h-nav-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1300px;
+    margin: 0 auto;
+}
+
+.h-navbar-logo {
+    color: #fff;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.h-nav-menu {
+    display: flex;
+    list-style: none;
+    gap: 30px;
+}
+
+.h-nav-item a {
+    text-decoration: none;
+    color: #e0e0e0;
+    font-size: 16px;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+.h-nav-item a:hover {
+    color: #fca311; /* Gold accent color */
+}
+
+/* Desktop Buttons */
+.h-nav-actions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.h-login-btn {
+    background-color: #fca311; 
+    padding: 8px 20px; 
+    border-radius: 5px; 
+    color: #14213d;
+    text-decoration: none;
+    font-weight: bold;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.h-login-btn:hover {
+    transform: translateY(-2px);
+    background-color: #e5940e;
+}
+
+/* --- HERO TEXT SECTION --- */
+.h-hero-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 20px;
+    margin-top: 0;       /* Reset margin */
+    padding-top: 150px; /* Slight lift to account for search bar at bottom */
+}
+
+.h-hero-tagline {
+    color: #fca311;
+    font-size: 14px;
+    letter-spacing: 3px;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.h-hero-title {
+    font-size: 3.5rem;
+    color: white;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 20px;
+}
+
+.h-hero-title .h-highlight {
+    color: #fca311; /* Gold */
+    font-style: italic;
+}
+
+.h-hero-desc {
+    color: #d1d5db;
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto 40px auto;
+    line-height: 1.6;
+}
+
+/* --- BOOKING WIDGET --- */
+.h-booking-container {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 60px; /* Space from bottom */
+}
+
+.h-booking-form {
+    background-color: white;
+    padding: 20px 30px;
+    border-radius: 12px;
+    display: flex;
+    align-items: flex-end; /* Align inputs to button */
+    gap: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    max-width: 1100px;
+    width: 100%;
+    flex-wrap: wrap; /* Allows stacking on smaller screens */
+}
+
+.h-input-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1; /* Equal width */
+    min-width: 150px;
+}
+
+.h-small-group {
+    flex: 0.5;
+    min-width: 80px;
+}
+
+.h-input-group label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.h-input-group input, 
+.h-input-group select {
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 16px;
+    color: #1f2937;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.3s;
+}
+
+.h-input-group input:focus, 
+.h-input-group select:focus {
+    border-color: #fca311;
+}
+
+.h-search-btn {
+    background-color: #14213d; /* Dark Blue */
+    color: white;
+    border: none;
+    padding: 13px 30px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    height: 48px; /* Match input height */
+    flex: 0.8;
+}
+
+.h-search-btn:hover {
+    background-color: #fca311;
+    color: #14213d;
+}
+
+/* --- ANIMATIONS --- */
+.h-fade-in-up {
+    animation: fadeInUp 0.8s ease-out forwards;
+    opacity: 0;
+    transform: translateY(30px);
+}
+
+.h-delay-200 { animation-delay: 0.2s; }
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- MOBILE RESPONSIVENESS --- */
+.h-hamburger { display: none; cursor: pointer; }
+.h-mobile-only { display: none; }
+.h-desktop-only { display: flex; }
+
+@media (max-width: 900px) {
+    .h-nav-container { padding: 15px 20px; }
+    .h-hero-title { font-size: 2.5rem; }
+    
+    /* Booking Widget stacks on tablet */
+    .h-booking-form {
+        gap: 15px;
+    }
+    .h-input-group { flex: 1 1 40%; } /* 2 per row */
+}
+
+@media (max-width: 768px) {
+    .h-hamburger { display: block; }
+    .h-desktop-only { display: none; }
+    .h-mobile-only { display: block; }
+
+    .h-nav-menu {
+        position: fixed;
+        left: -100%;
+        top: 70px;
+        flex-direction: column;
+        background-color: #14213d;
+        width: 100%;
+        text-align: center;
+        transition: 0.3s;
+        padding: 20px 0;
+        z-index: 100;
+    }
+
+    .h-nav-menu.active { left: 0; }
+
+    .h-bar {
+        display: block;
+        width: 25px;
+        height: 3px;
+        margin: 5px auto;
+        background-color: white;
+        transition: all 0.3s ease-in-out;
+    }
+
+    .h-bar.active:nth-child(2) { opacity: 0; }
+    .h-bar.active:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+    .h-bar.active:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+    .h-booking-form {
+        flex-direction: column; /* Stack completely on mobile */
+        align-items: stretch;
+    }
+    
+    .h-search-btn {
+        width: 100%;
+        margin-top: 10px;
+    }
+}

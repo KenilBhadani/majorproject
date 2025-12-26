@@ -1,0 +1,207 @@
+/* --- GLOBAL --- */
+.about-page-container {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+    background-color: #fff;
+}
+
+/* --- HERO BANNER --- */
+.abt-hero {
+    position: relative;
+    height: 60vh; /* 60% of viewport height */
+    width: 100%;
+}
+
+.abt-hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.abt-hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Dark overlay */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.abt-hero-title {
+    font-size: 3.5rem;
+    color: white;
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-family: serif;
+}
+
+/* --- HERITAGE SECTION --- */
+.abt-heritage-section {
+    padding: 80px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.abt-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 50px;
+    align-items: center;
+}
+
+/* Tablet & Desktop */
+@media (min-width: 768px) {
+    .abt-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.abt-tag {
+    color: #fca311; /* Gold */
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+.abt-heading {
+    font-size: 2.5rem;
+    color: #14213d; /* Dark Blue */
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 20px;
+    font-family: serif;
+}
+
+.abt-gold-text {
+    color: #fca311;
+    font-style: italic;
+}
+
+.abt-desc {
+    color: #555;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+/* Image Wrapper */
+.abt-image-wrapper {
+    position: relative;
+}
+
+.abt-interior-img {
+    width: 100%;
+    height: 500px;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.abt-stat-box {
+    position: absolute;
+    bottom: -30px;
+    left: -30px;
+    background-color: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    display: none; /* Hidden on mobile */
+}
+
+@media (min-width: 768px) {
+    .abt-stat-box {
+        display: block;
+    }
+}
+
+.abt-stat-number {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #14213d;
+    font-family: serif;
+    margin: 0;
+    line-height: 1;
+}
+
+.abt-stat-label {
+    color: #666;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    margin-top: 5px;
+}
+
+/* --- TEAM SECTION --- */
+.abt-team-section {
+    background-color: #f8fafc; /* Very light slate */
+    padding: 80px 20px;
+}
+
+.abt-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.abt-section-title {
+    font-size: 2.5rem;
+    font-family: serif;
+    font-weight: 700;
+    color: #14213d;
+    margin-bottom: 50px;
+}
+
+.abt-team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+}
+
+.abt-team-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    transition: transform 0.3s ease;
+}
+
+.abt-team-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+}
+
+.abt-team-img-box {
+    height: 350px;
+    overflow: hidden;
+}
+
+.abt-team-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.abt-team-card:hover .abt-team-img {
+    transform: scale(1.05);
+}
+
+.abt-team-info {
+    padding: 25px;
+}
+
+.abt-member-name {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #14213d;
+    margin-bottom: 5px;
+}
+
+.abt-member-role {
+    color: #fca311;
+    font-weight: 600;
+}
