@@ -1,7 +1,7 @@
 import Header2 from "./Header2";
-import Footer from "./footer";
-import RoomListing from "./roombooking";
 import BookingSteps from "./Bookingstep";
+import RoomListing from "./roombooking";
+import Footer from "./footer";
 
 function Bookingpage() {
     return (
