@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 // 👉 path to frontend src/upload
-const uploadPath = path.join(__dirname, "..", "..", "src", "upload");
+const uploadPath = path.join(__dirname, "..", "uploads");
 
 // ensure folder exists
 if (!fs.existsSync(uploadPath)) {
