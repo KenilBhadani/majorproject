@@ -1,4 +1,5 @@
 import '../Componentcss/OffersHero.css';
+import { Link } from 'react-router-dom';
 
 function OffersHero() {
     return (
@@ -31,7 +32,7 @@ function OffersHero() {
                     </p>
                     
                     <div className="hero-actions">
-                        <button className="btn-hero-primary">View All Offers</button>
+                        <button className="btn-hero-primary"><Link to="/offerpage">View All Offers</Link></button>
                         <button className="btn-hero-secondary">Subscribe for Alerts</button>
                     </div>
 

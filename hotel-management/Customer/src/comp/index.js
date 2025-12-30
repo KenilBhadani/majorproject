@@ -1,19 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import '../Componentcss/index.css'; 
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function Horosection() {
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  // State for the Login Dropdown
   const [isLoginDropdownOpen, setIsLoginDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
+  // State for the booking search
   const [bookingData, setBookingData] = useState({
     checkIn: '',
     checkOut: '',
     roomType: 'deluxe',
     guests: 1
   });
+
+  // Handle Input Changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setBookingData({ ...bookingData, [name]: value });
+  };
+
+  // Toggle Menus
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const toggleLoginDropdown = (e) => {
+    e.preventDefault();
+    setIsLoginDropdownOpen(!isLoginDropdownOpen);
+  };
 
   // Close dropdown if user clicks outside of it
   useEffect(() => {
@@ -26,31 +40,33 @@ function Horosection() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
-  
-  const toggleLoginDropdown = (e) => {
-    e.preventDefault();
-    setIsLoginDropdownOpen(!isLoginDropdownOpen);
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setBookingData({ ...bookingData, [name]: value });
-  };
-
+  // Handle Search Logic
   const handleSearch = (e) => {
     e.preventDefault();
-    console.log("Searching availability for:", bookingData);
+
+    // Date Validation
+    const checkInDate = new Date(bookingData.checkIn);
+    const checkOutDate = new Date(bookingData.checkOut);
+
+    if (checkInDate >= checkOutDate) {
+      alert("Check-out date must be after Check-in date");
+      return;
+    }
+
+    // Navigate to results page with data
+    console.log("Navigating with data:", bookingData);
+    navigate('/bookingpage', { state: { searchParams: bookingData } });
   };
 
   return (
     <div className="h-hero-container">
       <header className="h-header">
         
+        {/* ===== NAVBAR ===== */}
         <div className="h-nav-container">
           <div className="h-nav-bar">
             <div className="h-navbar-logo">
-                <span className="h-logo-icon">👑</span> RoyalPark
+              <span className="h-logo-icon">👑</span> RoyalPark
             </div>
 
             <div className="h-hamburger" onClick={toggleMenu}>
@@ -63,10 +79,10 @@ function Horosection() {
               <li className="h-nav-item"><Link to="/">Home</Link></li>
               <li className="h-nav-item"><Link to="/aboutpage">About</Link></li>
               <li className="h-nav-item"><Link to="/services">Services</Link></li>
-              <li className="h-nav-item"><Link to="/bookingpage">Explore</Link></li>
+              <li className="h-nav-item"><Link to="/explore">Explore</Link></li>
               <li className="h-nav-item"><Link to="/contact">Contact</Link></li>
               
-              {/* Mobile Mobile Dropdown Logic */}
+              {/* Mobile Login section */}
               <li className="h-nav-item h-mobile-only">
                 <div className="h-mobile-login-section">
                    <p className="h-mobile-label">Login as:</p>
@@ -78,13 +94,11 @@ function Horosection() {
               </li>
             </ul>
             
-            {/* ===== UPDATED LOGIN DROPDOWN (Desktop) ===== */}
+            {/* ===== DESKTOP LOGIN DROPDOWN ===== */}
             <div className="h-nav-actions h-desktop-only" ref={dropdownRef}>
                 <button 
                   onClick={toggleLoginDropdown} 
                   className="h-login-btn"
-                  aria-haspopup="true"
-                  aria-expanded={isLoginDropdownOpen}
                 >
                     Login ▾
                 </button>
@@ -103,7 +117,7 @@ function Horosection() {
           </div>
         </div>
 
-        {/* ... Rest of your Hero Content and Search Form ... */}
+        {/* ===== HERO CONTENT ===== */}
         <div className="h-hero-wrapper">
           <div className="h-hero-text h-fade-in-up">
             <p className="h-hero-tagline">WELCOME TO ROYALPARK</p>
@@ -111,11 +125,12 @@ function Horosection() {
               A Place Where Comfort Feels Like <span className="h-highlight">Home.</span>
             </h1>
             <p className="h-hero-desc">
-              Experience luxury accommodation redefined. Whether you're travelling for business or leisure, enjoy a seamless stay tailored to your needs.
+              Experience luxury accommodation redefined. Enjoy a seamless stay tailored to your needs.
             </p>
           </div>
         </div>
 
+        {/* ===== SEARCH FORM ===== */}
         <div className="h-booking-container h-fade-in-up h-delay-200">
             <form className="h-booking-form" onSubmit={handleSearch}>
                 <div className="h-input-group">

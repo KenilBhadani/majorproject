@@ -18,6 +18,7 @@ import AboutPage from "./comp/Aboutpage";
 import Contact from "./comp/Contact";
 import EXPO from "./comp/expo";
 import Services from "./comp/services";
+import Offerpage from "./comp/Offerpage";
 
 /* ========== BOOKING ========== */
 import Bookingpage from "./comp/Bookingpage";
@@ -86,6 +87,7 @@ function App() {
       <Route path="/aboutpage" element={<AboutPage />} />
       <Route path="/explore" element={<EXPO />} />
       <Route path="/services" element={<Services />} />
+      <Route path="/offerpage" element={<Offerpage />} />
 
       {/* ===== BOOKING ===== */}
       <Route path="/bookingpage" element={<Bookingpage />} />
