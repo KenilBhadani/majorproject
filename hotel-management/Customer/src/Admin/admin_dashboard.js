@@ -100,11 +100,11 @@ export default function Dashboard() {
 
   /* ================= EFFECT ================= */
 
-  // useEffect(() => {
-  //   if (!token) return; // routing will handle redirect
-  //   fetchOverview(selectedMonth);
-  //   fetchRecentBookings();
-  // }, [selectedMonth, fetchOverview, fetchRecentBookings, token]);
+  useEffect(() => {
+    if (!token) return; // routing will handle redirect
+    fetchOverview(selectedMonth);
+    fetchRecentBookings();
+  }, [selectedMonth, fetchOverview, fetchRecentBookings, token]);
 
   /* ================= UI ================= */
 
