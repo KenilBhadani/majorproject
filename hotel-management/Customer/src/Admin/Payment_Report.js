@@ -93,14 +93,14 @@ function PaymentReports() {
       {/* SIDEBAR */}
       <div className="sidebar">
         <h1>Admin Panel</h1>
-        <Link to="/admin/dashboard">Dashboard</Link>
-        <Link to="/admin/ManageRoom">Manage Room</Link>
-        <Link to="/admin/ManageBooking">Manage Bookings</Link>
-        <Link to="/admin/ManageUser">Manage User</Link>
-        <Link to="/admin/ManagePayment" className="active">
+        <Link to="/admin">Dashboard</Link>
+        <Link to="/admin/manage-room">Manage Room</Link>
+        <Link to="/admin/manage-booking">Manage Bookings</Link>
+        <Link to="/admin/manage-user">Manage User</Link>
+        <Link to="/admin/manage-payment" className="active">
           Payment & Reports
         </Link>
-        <Link to="/admin/DashboardStats">Dashboard Stats</Link>
+        <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
       </div>
 
       {/* MAIN */}

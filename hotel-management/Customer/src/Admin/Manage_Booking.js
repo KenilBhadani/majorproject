@@ -105,14 +105,14 @@ function ManageBookings() {
       {/* SIDEBAR */}
       <div className="sidebar">
         <h1>Admin Panel</h1>
-        <Link to="/admin/dashboard">Dashboard</Link>
-        <Link to="/admin/ManageRoom">Manage Room</Link>
-        <Link to="/admin/ManageBooking" className="active">
+        <Link to="/admin">Dashboard</Link>
+        <Link to="/admin/manage-room">Manage Room</Link>
+        <Link to="/admin/manage-booking" className="active">
           Manage Bookings
         </Link>
-        <Link to="/admin/ManageUser">Manage User</Link>
-        <Link to="/admin/ManagePayment">Payment & Reports</Link>
-        <Link to="/admin/DashboardStats">Dashboard Stats</Link>
+        <Link to="/admin/manage-user">Manage User</Link>
+        <Link to="/admin/manage-payment">Payment & Reports</Link>
+        <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
       </div>
 
       {/* MAIN */}

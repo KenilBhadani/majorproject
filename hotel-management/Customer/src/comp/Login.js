@@ -44,7 +44,7 @@ export default function Login() {
 
       // ✅ ROLE BASED REDIRECT
       if (data.user.role === "admin") {
-        navigate("/admin/dashboard");
+        navigate("/admin");
       } else {
         navigate("/");
       }

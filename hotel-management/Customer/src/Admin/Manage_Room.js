@@ -162,12 +162,12 @@ function ManageRoom() {
       {/* SIDEBAR */}
       <div className="sidebar">
         <h1>Admin Panel</h1>
-        <Link to="/admin/dashboard">Dashboard</Link>
-        <Link to="/admin/ManageRoom" className="active">Manage Room</Link>
-        <Link to="/admin/ManageBooking">Manage Bookings</Link>
-        <Link to="/admin/ManageUser">Manage User</Link>
-        <Link to="/admin/ManagePayment">Payment & Reports</Link>
-        <Link to="/admin/DashboardStats">Dashboard Stats</Link>
+        <Link to="/admin">Dashboard</Link>
+        <Link to="/admin/manage-room" className="active">Manage Room</Link>
+        <Link to="/admin/manage-booking">Manage Bookings</Link>
+        <Link to="/admin/manage-user">Manage User</Link>
+        <Link to="/admin/manage-payment">Payment & Reports</Link>
+        <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
       </div>
 
       {/* MAIN */}
@@ -250,7 +250,7 @@ function ManageRoom() {
                 <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} />
 
                 {editingId && form.image && !imageFile && (
-                  <img src={`${API}${form.image}`} alt="Room" style={{ width: "120px", marginTop: "10px", borderRadius: "8px" }} />
+                  <img src={`${API}/${form.image}`} alt="Room" style={{ width: "120px", marginTop: "10px", borderRadius: "8px" }} />
                 )}
               </div>
 
@@ -289,7 +289,7 @@ function ManageRoom() {
                       <tr key={room._id}>
                         <td>
                           {room.images?.[0] && (
-                            <img src={`${API}${room.images[0]}`} alt="" style={{ width: "60px", borderRadius: "6px" }} />
+                            <img src={`${API}/${room.images[0]}`} alt="" style={{ width: "60px", borderRadius: "6px" }} />
                           )}
                         </td>
                         <td>{room.title}</td>

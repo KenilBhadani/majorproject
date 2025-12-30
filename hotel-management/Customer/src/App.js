@@ -108,8 +108,8 @@ function App() {
       <Route path="/admin/manage-booking" element={<ManageBookings />} />
       <Route path="/admin/manage-room" element={<ManageRoom />} />
       <Route path="/admin/manage-user" element={<ManageUser />} />
-      <Route path="/admin/payments" element={<PaymentReports />} />
-      <Route path="/admin/stats" element={<DashboardStats />} />
+      <Route path="/admin/manage-payment" element={<PaymentReports />} />
+      <Route path="/admin/dashboard-stats" element={<DashboardStats />} />
 
       {/* ===== STAFF ROUTES ===== */}
       <Route
