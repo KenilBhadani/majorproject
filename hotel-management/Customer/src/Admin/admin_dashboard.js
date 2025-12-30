@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback , useEffect } from "react";
 import { Link } from "react-router-dom";
 import "../Admin/admin_dashboard.css";
 import { ResponsiveContainer, LineChart, Line } from "recharts";
@@ -31,6 +31,7 @@ function sparklineData(days) {
 /* ================= COMPONENT ================= */
 
 export default function Dashboard() {
+  
   const token = localStorage.getItem("token");
 
   const months = getLastNMonths(12);
