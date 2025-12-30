@@ -32,6 +32,8 @@ import ManageRoom from "./Admin/Manage_Room";
 import ManageUser from "./Admin/Manage_User";
 import PaymentReports from "./Admin/Payment_Report";
 import DashboardStats from "./Admin/Dash_stats";
+     
+import ManageStaff from "./Admin/Manage_Staff";
 
 /* ========== STAFF ========== */
 import StaffLayout from "./Staff/StaffLayout";
@@ -114,6 +116,8 @@ function App() {
       <Route path="/admin/manage-user" element={<ManageUser />} />
       <Route path="/admin/manage-payment" element={<PaymentReports />} />
       <Route path="/admin/dashboard-stats" element={<DashboardStats />} />
+       <Route path="/admin/manage-staff" element={<ManageStaff />} />
+
 
       {/* ===== STAFF ROUTES ===== */}
       <Route
