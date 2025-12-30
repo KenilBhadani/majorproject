@@ -15,7 +15,7 @@ const StaffLayout = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/login');
+    navigate('/');
   };
 
   const menuItems = [

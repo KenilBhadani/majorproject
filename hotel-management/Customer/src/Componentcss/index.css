@@ -9,11 +9,10 @@
 /* --- HEADER CONTAINER --- */
 .h-hero-container {
     width: 100%;
-    /* Use a high quality hotel image here */
     background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
     background-size: cover;
     background-position: center;
-    background-attachment: fixed; /* Parallax effect */
+    background-attachment: fixed;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -24,9 +23,11 @@
 .h-nav-container {
     width: 100%;
     padding: 20px 50px;
-    background: rgba(0, 0, 0, 0.2); /* Transparent dark background */
+    background: rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(5px);
     border-bottom: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+    z-index: 1000;
 }
 
 .h-nav-bar {
@@ -62,29 +63,78 @@
 }
 
 .h-nav-item a:hover {
-    color: #fca311; /* Gold accent color */
+    color: #fca311;
 }
 
-/* Desktop Buttons */
+/* --- DROPDOWN ACTION SECTION --- */
 .h-nav-actions {
     display: flex;
     gap: 15px;
     align-items: center;
+    position: relative; /* Crucial for dropdown positioning */
 }
 
 .h-login-btn {
     background-color: #fca311; 
-    padding: 8px 20px; 
+    padding: 10px 24px; 
     border-radius: 5px; 
     color: #14213d;
     text-decoration: none;
     font-weight: bold;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
     transition: transform 0.2s, background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .h-login-btn:hover {
     transform: translateY(-2px);
     background-color: #e5940e;
+}
+
+/* Desktop Dropdown Box */
+.h-login-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 15px);
+    right: 0;
+    background-color: white;
+    min-width: 200px;
+    border-radius: 8px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1001;
+    border: 1px solid rgba(0,0,0,0.05);
+    animation: hDropdownSlide 0.3s ease-out;
+}
+
+.h-dropdown-item {
+    padding: 14px 20px;
+    text-decoration: none;
+    color: #14213d;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.2s;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.h-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.h-dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #fca311;
+    padding-left: 25px; /* Slight slide effect on hover */
+}
+
+@keyframes hDropdownSlide {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* --- HERO TEXT SECTION --- */
@@ -95,8 +145,7 @@
     justify-content: center;
     text-align: center;
     padding: 0 20px;
-    margin-top: 0;       /* Reset margin */
-    padding-top: 150px; /* Slight lift to account for search bar at bottom */
+    padding-top: 100px;
 }
 
 .h-hero-tagline {
@@ -116,7 +165,7 @@
 }
 
 .h-hero-title .h-highlight {
-    color: #fca311; /* Gold */
+    color: #fca311;
     font-style: italic;
 }
 
@@ -134,7 +183,7 @@
     padding: 20px;
     display: flex;
     justify-content: center;
-    padding-bottom: 60px; /* Space from bottom */
+    padding-bottom: 60px;
 }
 
 .h-booking-form {
@@ -142,18 +191,18 @@
     padding: 20px 30px;
     border-radius: 12px;
     display: flex;
-    align-items: flex-end; /* Align inputs to button */
+    align-items: flex-end;
     gap: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     max-width: 1100px;
     width: 100%;
-    flex-wrap: wrap; /* Allows stacking on smaller screens */
+    flex-wrap: wrap;
 }
 
 .h-input-group {
     display: flex;
     flex-direction: column;
-    flex: 1; /* Equal width */
+    flex: 1;
     min-width: 150px;
 }
 
@@ -179,7 +228,6 @@
     color: #1f2937;
     outline: none;
     width: 100%;
-    transition: border-color 0.3s;
 }
 
 .h-input-group input:focus, 
@@ -188,7 +236,7 @@
 }
 
 .h-search-btn {
-    background-color: #14213d; /* Dark Blue */
+    background-color: #14213d;
     color: white;
     border: none;
     padding: 13px 30px;
@@ -197,7 +245,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.3s;
-    height: 48px; /* Match input height */
+    height: 48px;
     flex: 0.8;
 }
 
@@ -206,54 +254,62 @@
     color: #14213d;
 }
 
-/* --- ANIMATIONS --- */
-.h-fade-in-up {
-    animation: fadeInUp 0.8s ease-out forwards;
-    opacity: 0;
-    transform: translateY(30px);
-}
-
-.h-delay-200 { animation-delay: 0.2s; }
-
-@keyframes fadeInUp {
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* --- MOBILE RESPONSIVENESS --- */
+/* --- MOBILE STYLES --- */
 .h-hamburger { display: none; cursor: pointer; }
 .h-mobile-only { display: none; }
 .h-desktop-only { display: flex; }
 
+/* Mobile Dropdown Styling within Sidebar */
+.h-mobile-login-section {
+    padding: 15px 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 10px;
+    text-align: left;
+}
+
+.h-mobile-label {
+    color: #fca311;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.h-mobile-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.h-mobile-options a {
+    color: white !important;
+    font-size: 16px !important;
+}
+
 @media (max-width: 900px) {
     .h-nav-container { padding: 15px 20px; }
     .h-hero-title { font-size: 2.5rem; }
-    
-    /* Booking Widget stacks on tablet */
-    .h-booking-form {
-        gap: 15px;
-    }
-    .h-input-group { flex: 1 1 40%; } /* 2 per row */
+    .h-input-group { flex: 1 1 40%; }
 }
 
 @media (max-width: 768px) {
-    .h-hamburger { display: block; }
+    .h-hamburger { display: block; z-index: 1002; }
     .h-desktop-only { display: none; }
     .h-mobile-only { display: block; }
 
     .h-nav-menu {
         position: fixed;
         left: -100%;
-        top: 70px;
+        top: 0;
         flex-direction: column;
         background-color: #14213d;
-        width: 100%;
-        text-align: center;
-        transition: 0.3s;
-        padding: 20px 0;
-        z-index: 100;
+        width: 80%;
+        height: 100vh;
+        transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        padding: 100px 0;
+        z-index: 1001;
+        box-shadow: 10px 0 30px rgba(0,0,0,0.5);
     }
 
     .h-nav-menu.active { left: 0; }
@@ -264,7 +320,7 @@
         height: 3px;
         margin: 5px auto;
         background-color: white;
-        transition: all 0.3s ease-in-out;
+        transition: all 0.3s;
     }
 
     .h-bar.active:nth-child(2) { opacity: 0; }
@@ -272,12 +328,7 @@
     .h-bar.active:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
 
     .h-booking-form {
-        flex-direction: column; /* Stack completely on mobile */
+        flex-direction: column;
         align-items: stretch;
-    }
-    
-    .h-search-btn {
-        width: 100%;
-        margin-top: 10px;
     }
 }
