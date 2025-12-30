@@ -12,7 +12,6 @@ import Middle from "./comp/Middle";
 import Footer from "./comp/footer";
 import Rooms from "./comp/staticroom";
 import Small from "./comp/small";
-import OffersHero from "./comp/Offer";
 import LoyaltyHero from "./comp/Offer";
 import Events from "./comp/Event";
 import AboutPage from "./comp/Aboutpage";
