@@ -80,7 +80,6 @@ function App() {
             <Middle />
             <Small />
             <Events />
-            <OffersHero />
            <LoyaltyHero/>
             <Footer />
           </>
