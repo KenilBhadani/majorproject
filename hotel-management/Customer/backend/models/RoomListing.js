@@ -25,6 +25,11 @@ const RoomListingSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     size: { type: Number, required: true },
+        roomType: {
+      type: String,
+      required: true,
+      enum: ["Single", "Double", "Deluxe", "Suite", "Family"]
+    },
     capacity: { type: Number, required: true, min: 1 },
     bedType: { type: String, required: true },
     availableRooms: { type: Number, required: true, min: 0 },

@@ -3,7 +3,9 @@ const router = express.Router();
 const Room = require("../models/RoomListing");
 const upload = require("../middleware/upload");
 
-/* GET all active rooms */
+/* ===============================
+   GET ALL ACTIVE ROOMS
+================================ */
 router.get("/", async (req, res) => {
   try {
     const rooms = await Room.find({ status: "active" }).sort({ createdAt: -1 });
@@ -14,12 +16,15 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* CREATE room */
+/* ===============================
+   CREATE ROOM
+================================ */
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     const {
       title,
       description,
+      roomType,          // ✅ ADDED
       size,
       capacity,
       bedType,
@@ -32,88 +37,115 @@ router.post("/", upload.single("image"), async (req, res) => {
       currency,
     } = req.body;
 
-    if (!title || !description || !size || !capacity || !bedType || !availableRooms || !standardRate) {
+    // ✅ VALIDATION
+    if (
+      !title ||
+      !roomType ||
+      !size ||
+      !capacity ||
+      !bedType ||
+      !availableRooms ||
+      !standardRate
+    ) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
     const room = await Room.create({
       title,
       description,
+      roomType, // ✅ SAVED
       size: Number(size),
       capacity: Number(capacity),
       bedType,
       availableRooms: Number(availableRooms),
+
       images: req.file ? [`uploads/${req.file.filename}`] : [],
+
       rates: {
         planName: planName || "Standard Plan",
         inclusions: inclusions
-          ? Array.isArray(inclusions)
-            ? inclusions
-            : inclusions.split(",").map(i => i.trim())
+          ? inclusions.split(",").map(i => i.trim())
           : [],
         depositPolicy,
       },
+
       pricing: {
         standardRate: Number(standardRate),
         currency: currency || "INR",
       },
+
       amenities: amenities
-        ? Array.isArray(amenities)
-          ? amenities
-          : amenities.split(",").map(a => a.trim())
+        ? amenities.split(",").map(a => a.trim())
         : [],
+
       status: "active",
     });
 
     res.status(201).json(room);
   } catch (err) {
     console.error("CREATE ROOM ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: err.message });
   }
 });
 
-/* UPDATE room */
+/* ===============================
+   UPDATE ROOM
+================================ */
 router.put("/:id", upload.single("image"), async (req, res) => {
   try {
     const updateData = {
       title: req.body.title,
       description: req.body.description,
+      roomType: req.body.roomType, // ✅ ADDED
       size: req.body.size ? Number(req.body.size) : undefined,
       capacity: req.body.capacity ? Number(req.body.capacity) : undefined,
       bedType: req.body.bedType,
-      availableRooms: req.body.availableRooms ? Number(req.body.availableRooms) : undefined,
-      amenities: req.body.amenities
-        ? Array.isArray(req.body.amenities)
-          ? req.body.amenities
-          : req.body.amenities.split(",").map(a => a.trim())
+      availableRooms: req.body.availableRooms
+        ? Number(req.body.availableRooms)
         : undefined,
+
+      amenities: req.body.amenities
+        ? req.body.amenities.split(",").map(a => a.trim())
+        : undefined,
+
       rates: req.body.planName
         ? {
             planName: req.body.planName,
             inclusions: req.body.inclusions
-              ? Array.isArray(req.body.inclusions)
-                ? req.body.inclusions
-                : req.body.inclusions.split(",").map(i => i.trim())
+              ? req.body.inclusions.split(",").map(i => i.trim())
               : [],
             depositPolicy: req.body.depositPolicy,
           }
         : undefined,
+
       pricing: req.body.standardRate
-        ? { standardRate: Number(req.body.standardRate), currency: req.body.currency || "INR" }
+        ? {
+            standardRate: Number(req.body.standardRate),
+            currency: req.body.currency || "INR",
+          }
         : undefined,
     };
 
-    if (req.file) updateData.images = [`uploads/${req.file.filename}`];
+    if (req.file) {
+      updateData.images = [`uploads/${req.file.filename}`];
+    }
 
-    const room = await Room.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
+    const room = await Room.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
     res.json(room);
   } catch (err) {
     console.error("UPDATE ROOM ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: err.message });
   }
 });
 
-/* SOFT DELETE room */
+/* ===============================
+   SOFT DELETE ROOM
+================================ */
 router.delete("/:id", async (req, res) => {
   try {
     await Room.findByIdAndUpdate(req.params.id, { status: "inactive" });

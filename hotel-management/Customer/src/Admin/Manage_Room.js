@@ -20,6 +20,7 @@ function ManageRoom() {
   const [form, setForm] = useState({
     title: "",
     description: "",
+    roomType: "",
     size: "",
     capacity: "",
     bedType: "",
@@ -79,6 +80,8 @@ function ManageRoom() {
     setForm({
       title: room.title,
       description: room.description || "",
+      roomType: room.roomType,
+
       size: room.size,
       capacity: room.capacity,
       bedType: room.bedType,
@@ -101,6 +104,8 @@ function ManageRoom() {
     setForm({
       title: "",
       description: "",
+      roomType: "",
+
       size: "",
       capacity: "",
       bedType: "",
@@ -121,6 +126,7 @@ function ManageRoom() {
     const fd = new FormData();
     fd.append("title", form.title);
     fd.append("description", form.description);
+    fd.append("roomType", form.roomType);
     fd.append("size", form.size);
     fd.append("capacity", form.capacity);
     fd.append("bedType", form.bedType);
@@ -168,6 +174,7 @@ function ManageRoom() {
         <Link to="/admin/manage-user">Manage User</Link>
         <Link to="/admin/manage-payment">Payment & Reports</Link>
         <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
+        
       </div>
 
       {/* MAIN */}
@@ -199,6 +206,22 @@ function ManageRoom() {
                   <label>Capacity</label>
                   <input type="number" name="capacity" value={form.capacity} onChange={handleChange} required />
                 </div>
+                <div className="form-group">
+  <label>Room Type</label>
+  <select
+    name="roomType"
+    value={form.roomType}
+    onChange={handleChange}
+    required
+  >
+    <option value="">Select Room Type</option>
+    <option value="Single">Single</option>
+    <option value="Double">Double</option>
+    <option value="Deluxe">Deluxe</option>
+    <option value="Suite">Suite</option>
+    <option value="Family">Family</option>
+  </select>
+</div>
 
                 <div className="form-group">
                   <label>Bed Type</label>

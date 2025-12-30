@@ -12,6 +12,7 @@ import '../Admin/navbar.css';
             <Link to="/admin/manage-user">Manage User</Link>
             <Link to="/admin/manage-payment">Payment & Reports</Link>
             <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
+            <Link to="/admin/manage-staff">Manage Staff</Link>
         </div>
         <div className="main">
           <div class="top-bar">

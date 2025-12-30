@@ -102,6 +102,7 @@ function ManageUser() {
         <Link to="/admin/manage-user" className="active">Manage User</Link>
         <Link to="/admin/manage-payment">Payment & Reports</Link>
         <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
+        <Link to="/admin/manage-staff">Manage Staff</Link>
       </div>
 
       {/* MAIN */}

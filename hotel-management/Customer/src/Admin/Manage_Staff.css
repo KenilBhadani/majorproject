@@ -1,0 +1,190 @@
+/* ===============================
+   ADMIN LAYOUT
+================================ */
+.admin-container {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f7fb;
+  font-family: "Segoe UI", sans-serif;
+}
+
+/* ===============================
+   SIDEBAR
+================================ */
+.sidebar {
+  width: 240px;
+  background: #111827;
+  color: #fff;
+  padding: 20px;
+}
+
+.sidebar h1 {
+  font-size: 22px;
+  margin-bottom: 20px;
+}
+
+.sidebar a {
+  display: block;
+  color: #d1d5db;
+  padding: 10px 12px;
+  text-decoration: none;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  transition: 0.3s;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+  background: #1f2937;
+  color: #fff;
+}
+
+/* ===============================
+   MAIN AREA
+================================ */
+.main {
+  flex: 1;
+  padding: 24px;
+}
+
+/* ===============================
+   TOP BAR
+================================ */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.top-bar h2 {
+  margin: 0;
+}
+
+.top-bar button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.top-bar button:hover {
+  background: #1d4ed8;
+}
+
+/* ===============================
+   CARD / FORM
+================================ */
+.card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+  margin-bottom: 20px;
+}
+
+.card input,
+.card select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+}
+
+.card button {
+  background: #16a34a;
+  color: #fff;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.card button:hover {
+  background: #15803d;
+}
+
+/* ===============================
+   TABLE
+================================ */
+.room-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.room-table thead {
+  background: #f3f4f6;
+}
+
+.room-table th,
+.room-table td {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.room-table th {
+  font-weight: 600;
+}
+
+.room-table tr:not(:last-child) {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.room-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* ===============================
+   ACTION BUTTONS
+================================ */
+.room-table button {
+  background: #ef4444;
+  border: none;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.room-table button:hover {
+  background: #dc2626;
+}
+
+/* ===============================
+   STATUS TAG
+================================ */
+.status-active {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.status-disabled {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* ===============================
+   RESPONSIVE
+================================ */
+@media (max-width: 900px) {
+  .admin-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .room-table {
+    font-size: 13px;
+  }
+}

@@ -101,6 +101,7 @@ function PaymentReports() {
           Payment & Reports
         </Link>
         <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
+        <Link to="/admin/manage-staff">Manage Staff</Link>
       </div>
 
       {/* MAIN */}
