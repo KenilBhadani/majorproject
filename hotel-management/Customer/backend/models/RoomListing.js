@@ -1,30 +1,42 @@
 const mongoose = require("mongoose");
 
+/* Rate Schema */
+const RateSchema = new mongoose.Schema(
+  {
+    planName: { type: String, required: true, trim: true },
+    inclusions: { type: [String], default: [] },
+    depositPolicy: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
+/* Pricing Schema */
+const PricingSchema = new mongoose.Schema(
+  {
+    standardRate: { type: Number, required: true, min: 0 },
+    currency: { type: String, default: "INR" },
+  },
+  { _id: false }
+);
+
+/* Room Listing Schema */
 const RoomListingSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
-    roomType: {
-      type: String,
-      required: true,
-      enum: ["Single", "Double", "Suite", "Deluxe", "erg"]
-    },
-    pricePerNight: { type: Number, required: true, min: 0 },
+    size: { type: Number, required: true },
     capacity: { type: Number, required: true, min: 1 },
-    stock: { type: Number },
-    image: { type: String }, // stored as public url path e.g. /uploads/filename
-    amenities: [String],
-    AvailabilityStatus: {
-      type: String,
-      enum: ["Available", "Booked", "Maintenance"],
-      default: "Available"
-    },
-    isActive: { type: Boolean, default: true }
+    bedType: { type: String, required: true },
+    availableRooms: { type: Number, required: true, min: 0 },
+    images: { type: [String], default: [] },
+    rates: RateSchema,
+    pricing: PricingSchema,
+    amenities: { type: [String], default: [] },
+    status: { type: String, enum: ["active", "inactive"], default: "active" },
   },
   { timestamps: true }
 );
 
-// Prevent OverwriteModelError in dev/hot-reload
 module.exports =
-  mongoose.models.Room ||
-  mongoose.model("Room", RoomListingSchema, "rooms");
+  mongoose.models.RoomListing ||
+  mongoose.model("RoomListing", RoomListingSchema, "rooms");

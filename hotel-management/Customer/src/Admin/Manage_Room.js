@@ -11,25 +11,28 @@ function ManageRoom() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // 🔍 Search
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
 
   const didFetch = useRef(false);
 
-  // 🧾 FORM STATE
+  // ✅ Form state matches RoomListing.js schema
   const [form, setForm] = useState({
     title: "",
     description: "",
-    roomType: "",
-    pricePerNight: "",
+    size: "",
     capacity: "",
-    stock: "",
+    bedType: "",
+    availableRooms: "",
     amenities: "",
-    image: "" // existing image path (for edit)
+    planName: "",
+    inclusions: "",
+    depositPolicy: "",
+    standardRate: "",
+    currency: "INR",
+    image: "" // for edit preview
   });
 
-  // 🖼️ FILE STATE
   const [imageFile, setImageFile] = useState(null);
 
   useEffect(() => {
@@ -76,12 +79,17 @@ function ManageRoom() {
     setForm({
       title: room.title,
       description: room.description || "",
-      roomType: room.roomType,
-      pricePerNight: room.pricePerNight,
+      size: room.size,
       capacity: room.capacity,
-      stock: room.stock,
+      bedType: room.bedType,
+      availableRooms: room.availableRooms,
       amenities: room.amenities?.join(", ") || "",
-      image: room.image || ""
+      planName: room.rates?.planName || "",
+      inclusions: room.rates?.inclusions?.join(", ") || "",
+      depositPolicy: room.rates?.depositPolicy || "",
+      standardRate: room.pricing?.standardRate || "",
+      currency: room.pricing?.currency || "INR",
+      image: room.images?.[0] || ""
     });
     setImageFile(null);
     setShowForm(true);
@@ -93,31 +101,38 @@ function ManageRoom() {
     setForm({
       title: "",
       description: "",
-      roomType: "",
-      pricePerNight: "",
+      size: "",
       capacity: "",
-      stock: "",
+      bedType: "",
+      availableRooms: "",
       amenities: "",
+      planName: "",
+      inclusions: "",
+      depositPolicy: "",
+      standardRate: "",
+      currency: "INR",
       image: ""
     });
   }
 
-  // 📤 SUBMIT WITH IMAGE
   async function handleSubmit(e) {
     e.preventDefault();
 
     const fd = new FormData();
     fd.append("title", form.title);
     fd.append("description", form.description);
-    fd.append("roomType", form.roomType);
-    fd.append("pricePerNight", form.pricePerNight);
+    fd.append("size", form.size);
     fd.append("capacity", form.capacity);
-    fd.append("stock", form.stock);
+    fd.append("bedType", form.bedType);
+    fd.append("availableRooms", form.availableRooms);
     fd.append("amenities", form.amenities);
+    fd.append("planName", form.planName);
+    fd.append("inclusions", form.inclusions);
+    fd.append("depositPolicy", form.depositPolicy);
+    fd.append("standardRate", form.standardRate);
+    fd.append("currency", form.currency);
 
-    if (imageFile) {
-      fd.append("image", imageFile);
-    }
+    if (imageFile) fd.append("image", imageFile);
 
     const url = editingId
       ? `${API}/api/admin/rooms/${editingId}`
@@ -125,10 +140,7 @@ function ManageRoom() {
 
     const method = editingId ? "PUT" : "POST";
 
-    await fetch(url, {
-      method,
-      body: fd
-    });
+    await fetch(url, { method, body: fd });
 
     resetForm();
     setShowForm(false);
@@ -167,12 +179,9 @@ function ManageRoom() {
 
         {error && <p className="error-text">{error}</p>}
 
-        {/* FORM */}
         {showForm ? (
           <div className="card">
-            <h3 className="card-title">
-              {editingId ? "Update Room" : "Add New Room"}
-            </h3>
+            <h3 className="card-title">{editingId ? "Update Room" : "Add New Room"}</h3>
 
             <form className="room-form modern-form" onSubmit={handleSubmit}>
               <div className="form-row">
@@ -182,56 +191,66 @@ function ManageRoom() {
                 </div>
 
                 <div className="form-group">
-                  <label>Room Type</label>
-                  <select name="roomType" value={form.roomType} onChange={handleChange} required>
-  <option value="">Select Room Type</option>
-  <option value="Single">Single</option>
-  <option value="Double">Double</option>
-  <option value="Suite">Suite</option>
-  <option value="Deluxe">Deluxe</option>
-</select>
-                  </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Price / Night</label>
-                  <input type="number" name="pricePerNight" value={form.pricePerNight} onChange={handleChange} required />
+                  <label>Size (sq.m)</label>
+                  <input type="number" name="size" value={form.size} onChange={handleChange} required />
                 </div>
 
                 <div className="form-group">
                   <label>Capacity</label>
                   <input type="number" name="capacity" value={form.capacity} onChange={handleChange} required />
                 </div>
+
+                <div className="form-group">
+                  <label>Bed Type</label>
+                  <input name="bedType" value={form.bedType} onChange={handleChange} required />
+                </div>
+
+                <div className="form-group">
+                  <label>Available Rooms</label>
+                  <input type="number" name="availableRooms" value={form.availableRooms} onChange={handleChange} required />
+                </div>
+              </div>
+
+              <div className="form-group full">
+                <label>Amenities (comma separated)</label>
+                <input name="amenities" value={form.amenities} onChange={handleChange} />
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Stock</label>
-                  <input type="number" name="stock" value={form.stock} onChange={handleChange} required />
+                  <label>Rate Plan Name</label>
+                  <input name="planName" value={form.planName} onChange={handleChange} />
                 </div>
 
                 <div className="form-group">
-                  <label>Amenities</label>
-                  <input name="amenities" value={form.amenities} onChange={handleChange} placeholder="AC, WiFi, TV" />
+                  <label>Inclusions (comma separated)</label>
+                  <input name="inclusions" value={form.inclusions} onChange={handleChange} />
+                </div>
+
+                <div className="form-group">
+                  <label>Deposit Policy</label>
+                  <input name="depositPolicy" value={form.depositPolicy} onChange={handleChange} />
                 </div>
               </div>
 
-              {/* IMAGE */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Standard Rate</label>
+                  <input type="number" name="standardRate" value={form.standardRate} onChange={handleChange} />
+                </div>
+
+                <div className="form-group">
+                  <label>Currency</label>
+                  <input name="currency" value={form.currency} onChange={handleChange} />
+                </div>
+              </div>
+
               <div className="form-group full">
                 <label>Room Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={e => setImageFile(e.target.files[0])}
-                />
+                <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} />
 
                 {editingId && form.image && !imageFile && (
-                  <img
-                    src={`${API}${form.image}`}
-                    alt="Room"
-                    style={{ width: "120px", marginTop: "10px", borderRadius: "8px" }}
-                  />
+                  <img src={`${API}${form.image}`} alt="Room" style={{ width: "120px", marginTop: "10px", borderRadius: "8px" }} />
                 )}
               </div>
 
@@ -241,30 +260,14 @@ function ManageRoom() {
               </div>
 
               <div className="form-actions">
-                <button type="submit" className="primary-btn">
-                  {editingId ? "Update Room" : "Add Room"}
-                </button>
-
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => {
-                    setShowForm(false);
-                    resetForm();
-                  }}
-                >
-                  Cancel
-                </button>
+                <button type="submit" className="primary-btn">{editingId ? "Update Room" : "Add Room"}</button>
+                <button type="button" className="secondary-btn" onClick={() => { setShowForm(false); resetForm(); }}>Cancel</button>
               </div>
             </form>
           </div>
         ) : (
           <>
-            <button
-              className="primary-btn"
-              style={{ marginBottom: "16px" }}
-              onClick={openAddForm}
-            >
+            <button className="primary-btn" style={{ marginBottom: "16px" }} onClick={openAddForm}>
               + Add New Room
             </button>
 
@@ -272,11 +275,7 @@ function ManageRoom() {
               <h3 className="card-title">Rooms List</h3>
 
               <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
-                <input
-                  placeholder="Search room by title..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
+                <input placeholder="Search room by title..." value={search} onChange={e => setSearch(e.target.value)} />
                 <button onClick={handleSearch}>Search</button>
                 <button onClick={clearSearch}>Clear</button>
               </div>
@@ -289,17 +288,14 @@ function ManageRoom() {
                     {filteredRooms.map(room => (
                       <tr key={room._id}>
                         <td>
-                          {room.image && (
-                            <img
-                              src={`${API}${room.image}`}
-                              alt=""
-                              style={{ width: "60px", borderRadius: "6px" }}
-                            />
+                          {room.images?.[0] && (
+                            <img src={`${API}${room.images[0]}`} alt="" style={{ width: "60px", borderRadius: "6px" }} />
                           )}
                         </td>
                         <td>{room.title}</td>
-                        <td>{room.roomType}</td>
-                        <td>₹{room.pricePerNight}</td>
+                        <td>{room.size} m²</td>
+                        <td>{room.capacity} Guests</td>
+                        <td>₹{room.pricing?.standardRate}</td>
                         <td>
                           <button onClick={() => startEdit(room)}>Edit</button>
                           <button onClick={() => deleteRoom(room._id)}>Delete</button>
