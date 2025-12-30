@@ -33,3 +33,14 @@ app.get("/", (req, res) => res.status(200).send("✅ Hotel Management API is run
 /* START SERVER */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+
+const staffDashboard = require("./routes/staffDashboard");
+app.use("/api/staff", staffDashboard);
+
+//Admin staff 
+const adminStaffRoutes = require("./routes/adminStaff");
+app.use("/api/admin/staff", adminStaffRoutes);
+
+// register staff auth routes
+const staffAuth = require("./routes/staffAuth");
+app.use("/api/staff/auth", staffAuth);
