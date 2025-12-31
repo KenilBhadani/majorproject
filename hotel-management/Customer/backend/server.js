@@ -44,3 +44,7 @@ app.use("/api/admin/staff", adminStaffRoutes);
 // register staff auth routes
 const staffAuth = require("./routes/staffAuth");
 app.use("/api/staff/auth", staffAuth);
+
+// Booking routes
+const roomRoutes = require("./routes/room");
+app.use("/api/rooms", roomRoutes);

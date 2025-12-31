@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-export default function RoomRow() {
+export default function RoomRow({ searchParams }) {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const API = "http://localhost:5000";
@@ -12,12 +12,39 @@ export default function RoomRow() {
   };
 
   useEffect(() => {
-    fetch(`${API}/api/rooms`)
-      .then(res => res.json())
-      .then(data => setRooms(Array.isArray(data) ? data : [data]))
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
+    fetchRooms();
+    // eslint-disable-next-line
+  }, [searchParams]);
+
+  async function fetchRooms() {
+    try {
+      setLoading(true);
+
+      let url = `${API}/api/rooms`;
+
+      // ✅ IF SEARCH DATA EXISTS → FILTERED ROOMS
+      if (searchParams?.checkIn && searchParams?.checkOut) {
+        const query = new URLSearchParams({
+          checkIn: searchParams.checkIn,
+          checkOut: searchParams.checkOut,
+          roomType: searchParams.roomType,
+          guests: searchParams.guests,
+        }).toString();
+
+        url = `${API}/api/rooms/available?${query}`;
+      }
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      setRooms(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      setRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   if (loading) return <p className="text-center mt-6">Loading rooms...</p>;
   if (!rooms.length) return <p className="text-center mt-6">No rooms available</p>;
@@ -25,14 +52,17 @@ export default function RoomRow() {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {rooms.map(room => (
-        <div key={room._id} className="border border-gray-200 rounded-md overflow-hidden shadow-sm">
+        <div
+          key={room._id}
+          className="border border-gray-200 rounded-md overflow-hidden shadow-sm"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-6 p-6">
 
             {/* LEFT: IMAGE */}
             <div>
               <div className="relative">
                 <img
-                  src={getImageUrl(room.images?.[0])} // <-- use helper
+                  src={getImageUrl(room.images?.[0])}
                   alt={room.title}
                   className="w-full h-56 object-cover rounded"
                 />
@@ -45,7 +75,9 @@ export default function RoomRow() {
                 <span>📐 {room.size || "N/A"} sq m</span>
                 <span>👥 Up to {room.capacity || "N/A"} guests</span>
               </div>
-              <div className="mt-2 text-sm text-gray-600">🛏 {room.bedType || "N/A"}</div>
+              <div className="mt-2 text-sm text-gray-600">
+                🛏 {room.bedType || "N/A"}
+              </div>
 
               <button className="mt-3 text-sm text-amber-700 underline hover:text-amber-900 transition">
                 ROOM DETAILS
@@ -54,7 +86,9 @@ export default function RoomRow() {
 
             {/* CENTER: DETAILS */}
             <div>
-              <h2 className="text-xl font-serif tracking-wide uppercase">{room.title}</h2>
+              <h2 className="text-xl font-serif tracking-wide uppercase">
+                {room.title}
+              </h2>
 
               {room.availableRooms <= 1 && (
                 <p className="flex items-center gap-2 text-red-600 text-sm mt-2">
@@ -63,16 +97,22 @@ export default function RoomRow() {
               )}
 
               <div className="border border-gray-200 mt-4 p-4 rounded">
-                <h3 className="font-medium mb-3">{room.rates?.planName || "Rate Info Not Available"}</h3>
+                <h3 className="font-medium mb-3">
+                  {room.rates?.planName || "Rate Info Not Available"}
+                </h3>
 
                 <ul className="space-y-2 text-sm text-gray-700">
                   {room.rates?.inclusions?.length
-                    ? room.rates.inclusions.map((inc, idx) => <li key={idx}>◆ {inc}</li>)
-                    : <li>No inclusions listed</li>
-                  }
+                    ? room.rates.inclusions.map((inc, idx) => (
+                        <li key={idx}>◆ {inc}</li>
+                      ))
+                    : <li>No inclusions listed</li>}
                 </ul>
 
-                <p className="mt-4 text-sm text-gray-600 italic">{room.rates?.depositPolicy || ""}</p>
+                <p className="mt-4 text-sm text-gray-600 italic">
+                  {room.rates?.depositPolicy || ""}
+                </p>
+
                 <button className="mt-3 text-sm text-amber-700 underline hover:text-amber-900 transition">
                   Rate Details
                 </button>
@@ -83,7 +123,12 @@ export default function RoomRow() {
                   <h4 className="font-medium mb-1">Amenities:</h4>
                   <ul className="flex flex-wrap gap-2">
                     {room.amenities.map((a, idx) => (
-                      <li key={idx} className="bg-gray-100 px-2 py-1 rounded text-xs">{a}</li>
+                      <li
+                        key={idx}
+                        className="bg-gray-100 px-2 py-1 rounded text-xs"
+                      >
+                        {a}
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -95,8 +140,8 @@ export default function RoomRow() {
               <div>
                 <p className="text-sm text-gray-500 text-center">MEMBER RATE</p>
                 <p className="text-xl font-semibold text-center mt-1">
-                  ₹ {Math.floor((room.pricing?.standardRate || 0) * 0.87)}{" "}
-                  <span className="text-sm font-normal">/ Night</span>
+                  ₹ {Math.floor((room.pricing?.standardRate || 0) * 0.87)}
+                  <span className="text-sm font-normal"> / Night</span>
                 </p>
 
                 <button className="w-full mt-3 bg-amber-700 text-white py-2 text-sm font-semibold hover:bg-amber-800 transition rounded">
@@ -107,7 +152,8 @@ export default function RoomRow() {
               <div className="border-t border-gray-200 mt-4 pt-4">
                 <p className="text-sm text-gray-500 text-center">STANDARD RATE</p>
                 <p className="text-xl font-semibold text-center mt-1">
-                  ₹ {room.pricing?.standardRate || "N/A"} <span className="text-sm font-normal">/ Night</span>
+                  ₹ {room.pricing?.standardRate || "N/A"}
+                  <span className="text-sm font-normal"> / Night</span>
                 </p>
 
                 <button className="w-full mt-3 border border-amber-700 text-amber-700 py-2 text-sm font-semibold hover:bg-amber-700 hover:text-white transition rounded">
