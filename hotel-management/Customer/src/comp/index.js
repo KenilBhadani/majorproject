@@ -40,23 +40,19 @@ function Horosection() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Handle Search Logic
-  const handleSearch = (e) => {
-    e.preventDefault();
+const handleSearch = (e) => {
+  e.preventDefault();
+  const checkInDate = new Date(bookingData.checkIn);
+  const checkOutDate = new Date(bookingData.checkOut);
 
-    // Date Validation
-    const checkInDate = new Date(bookingData.checkIn);
-    const checkOutDate = new Date(bookingData.checkOut);
+  if (checkInDate >= checkOutDate) {
+    alert("Check-out date must be after Check-in date");
+    return;
+  }
 
-    if (checkInDate >= checkOutDate) {
-      alert("Check-out date must be after Check-in date");
-      return;
-    }
-
-    // Navigate to results page with data
-    console.log("Navigating with data:", bookingData);
-    navigate('/bookingpage', { state: { searchParams: bookingData } });
-  };
+  // Navigate to your booking page and pass searchParams
+  navigate('/bookingpage', { state: { searchParams: bookingData } });
+};
 
   return (
     <div className="h-hero-container">
