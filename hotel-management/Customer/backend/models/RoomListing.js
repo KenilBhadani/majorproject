@@ -1,47 +1,65 @@
 const mongoose = require("mongoose");
 
-/* Rate Schema */
-const RateSchema = new mongoose.Schema(
+/* =========================
+   BOOKING SCHEMA
+========================= */
+const BookingSchema = new mongoose.Schema(
   {
-    planName: { type: String, required: true, trim: true },
-    inclusions: { type: [String], default: [] },
-    depositPolicy: { type: String, trim: true },
-  },
-  { _id: false }
-);
-
-/* Pricing Schema */
-const PricingSchema = new mongoose.Schema(
-  {
-    standardRate: { type: Number, required: true, min: 0 },
-    currency: { type: String, default: "INR" },
-  },
-  { _id: false }
-);
-
-/* Room Listing Schema */
-const RoomListingSchema = new mongoose.Schema(
-  {
-    title: { type: String, required: true, trim: true },
-    description: { type: String, required: true, trim: true },
-    size: { type: Number, required: true },
-        roomType: {
+    roomType: {
       type: String,
       required: true,
-      enum: ["Single", "Double", "Deluxe", "Suite", "Family"]
+      enum: ["Single", "Double", "Deluxe", "Suite", "Family"],
     },
-    capacity: { type: Number, required: true, min: 1 },
-    bedType: { type: String, required: true },
-    availableRooms: { type: Number, required: true, min: 0 },
-    images: { type: [String], default: [] },
-    rates: RateSchema,
-    pricing: PricingSchema,
-    amenities: { type: [String], default: [] },
-    status: { type: String, enum: ["active", "inactive"], default: "active" },
+
+    roomTitle: {
+      type: String,
+      trim: true,
+    },
+
+    checkIn: {
+      type: Date,
+      required: true,
+    },
+
+    checkOut: {
+      type: Date,
+      required: true,
+    },
+
+    bookingStatus: {
+      type: String,
+      enum: ["Upcoming", "Checked-in", "Completed", "Cancelled"],
+      default: "Upcoming",
+    },
+
+    guests: {
+      type: Number,
+      min: 1,
+    },
+
+    totalAmount: {
+      type: Number,
+      min: 0,
+    },
+
+    customerName: {
+      type: String,
+      trim: true,
+    },
+
+    customerPhone: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true }
 );
 
+/* =========================
+   EXPORT MODEL (IMPORTANT)
+========================= */
 module.exports =
-  mongoose.models.RoomListing ||
-  mongoose.model("RoomListing", RoomListingSchema, "rooms");
+  mongoose.models.Booking ||
+  mongoose.model("Booking", BookingSchema, "bookings");
+
+  
