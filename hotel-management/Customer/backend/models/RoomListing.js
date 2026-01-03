@@ -1,65 +1,40 @@
 const mongoose = require("mongoose");
 
 /* =========================
-   BOOKING SCHEMA
+   ROOM LISTING MODEL
 ========================= */
-const BookingSchema = new mongoose.Schema(
+const RoomListingSchema = new mongoose.Schema(
   {
+    title: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
     roomType: {
       type: String,
-      required: true,
+      
       enum: ["Single", "Double", "Deluxe", "Suite", "Family"],
-    },
-
-    roomTitle: {
-      type: String,
-      trim: true,
-    },
-
-    checkIn: {
-      type: Date,
       required: true,
     },
-
-    checkOut: {
-      type: Date,
-      required: true,
+    size: { type: Number },
+    capacity: { type: Number },
+    bedType: { type: String },
+    availableRooms: { type: Number, default: 0 },
+    images: [String],
+    rates: {
+      planName: String,
+      inclusions: [String],
+      depositPolicy: String,
     },
-
-    bookingStatus: {
-      type: String,
-      enum: ["Upcoming", "Checked-in", "Completed", "Cancelled"],
-      default: "Upcoming",
+    pricing: {
+      standardRate: { type: Number, default: 0 },
+      currency: { type: String, default: "INR" },
     },
-
-    guests: {
-      type: Number,
-      min: 1,
-    },
-
-    totalAmount: {
-      type: Number,
-      min: 0,
-    },
-
-    customerName: {
-      type: String,
-      trim: true,
-    },
-
-    customerPhone: {
-      type: String,
-      trim: true,
-    },
+    amenities: [String],
+    status: { type: String, enum: ["active", "inactive"], default: "active" },
   },
   { timestamps: true }
 );
 
-/* =========================
-   EXPORT MODEL (IMPORTANT)
-========================= */
 module.exports =
-  mongoose.models.Booking ||
-  mongoose.model("Booking", BookingSchema, "bookings");
+  mongoose.models.RoomListing ||
+  mongoose.model("RoomListing", RoomListingSchema, "rooms");
 
   

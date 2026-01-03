@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const Room = require("../models/Room");
+const Room = require("../models/RoomListing");
 
 // GET all active rooms
 router.get("/", async (req, res) => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+// import AdminSidebar from "./AdminSidebar";
 
 const API = "http://localhost:5000";
 
@@ -62,27 +62,7 @@ function ManageStaff() {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-slate-900 text-white p-6 hidden md:flex flex-col sticky top-0 h-screen">
-        <h1 className="text-2xl font-bold mb-10 text-indigo-400">AdminPanel</h1>
-        <nav className="space-y-2">
-          {["Dashboard", "Manage Room", "Manage Booking", "Manage User", "Manage Staff", "Manage Cheif" , "Waiter"].map((item) => (
-            <Link
-              key={item}
-              to={`/admin/${item.toLowerCase().replace(" ", "-")}`}
-              className={`block px-4 py-3 rounded-xl text-sm transition-all ${
-                item === "Manage Staff" 
-                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50" 
-                : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              {item}
-            </Link>
-          ))}
-        </nav>
-      </aside>
-
+      <AdminSidebar />
       {/* MAIN CONTENT */}
       <main className="flex-1 p-4 md:p-8">
         

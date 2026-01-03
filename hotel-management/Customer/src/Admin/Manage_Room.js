@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "../Admin/Manage_Room.css";
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function ManageRoom() {
   const [rooms, setRooms] = useState([]);
@@ -10,10 +10,12 @@ function ManageRoom() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
 
+  const token = localStorage.getItem("token");
   const didFetch = useRef(false);
 
   // ✅ Form state matches RoomListing.js schema
@@ -46,11 +48,23 @@ function ManageRoom() {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API}/api/admin/rooms`);
+      
+      const res = await fetch(`${API}/api/admin/rooms`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to load rooms: ${res.status} ${res.statusText}`);
+      }
+
       const data = await res.json();
       setRooms(Array.isArray(data) ? data : []);
-    } catch {
-      setError("Failed to load rooms");
+    } catch (err) {
+      console.error("Error fetching rooms:", err);
+      setError(err.message || "Failed to load rooms. Please check your connection and try again.");
       setRooms([]);
     } finally {
       setLoading(false);
@@ -122,46 +136,86 @@ function ManageRoom() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    
+    try {
+      setSubmitting(true);
+      setError("");
 
-    const fd = new FormData();
-    fd.append("title", form.title);
-    fd.append("description", form.description);
-    fd.append("roomType", form.roomType);
-    fd.append("size", form.size);
-    fd.append("capacity", form.capacity);
-    fd.append("bedType", form.bedType);
-    fd.append("availableRooms", form.availableRooms);
-    fd.append("amenities", form.amenities);
-    fd.append("planName", form.planName);
-    fd.append("inclusions", form.inclusions);
-    fd.append("depositPolicy", form.depositPolicy);
-    fd.append("standardRate", form.standardRate);
-    fd.append("currency", form.currency);
+      const fd = new FormData();
+      fd.append("title", form.title);
+      fd.append("description", form.description);
+      fd.append("roomType", form.roomType);
+      fd.append("size", form.size);
+      fd.append("capacity", form.capacity);
+      fd.append("bedType", form.bedType);
+      fd.append("availableRooms", form.availableRooms);
+      fd.append("amenities", form.amenities);
+      fd.append("planName", form.planName);
+      fd.append("inclusions", form.inclusions);
+      fd.append("depositPolicy", form.depositPolicy);
+      fd.append("standardRate", form.standardRate);
+      fd.append("currency", form.currency);
 
-    if (imageFile) fd.append("image", imageFile);
+      if (imageFile) fd.append("image", imageFile);
 
-    const url = editingId
-      ? `${API}/api/admin/rooms/${editingId}`
-      : `${API}/api/admin/rooms`;
+      const url = editingId
+        ? `${API}/api/admin/rooms/${editingId}`
+        : `${API}/api/admin/rooms`;
 
-    const method = editingId ? "PUT" : "POST";
+      const method = editingId ? "PUT" : "POST";
 
-    await fetch(url, { method, body: fd });
+      const res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: fd
+      });
 
-    resetForm();
-    setShowForm(false);
-    fetchRooms();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to ${editingId ? 'update' : 'create'} room: ${res.status} ${res.statusText}`);
+      }
+
+      resetForm();
+      setShowForm(false);
+      await fetchRooms();
+    } catch (err) {
+      console.error("Error submitting room:", err);
+      setError(err.message || `Failed to ${editingId ? 'update' : 'create'} room. Please try again.`);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function deleteRoom(id) {
-    if (!window.confirm("Disable this room?")) return;
-    await fetch(`${API}/api/admin/rooms/${id}`, { method: "DELETE" });
-    fetchRooms();
+    if (!window.confirm("Are you sure you want to delete this room?")) return;
+    
+    try {
+      const res = await fetch(`${API}/api/admin/rooms/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to delete room");
+      }
+
+      await fetchRooms();
+    } catch (err) {
+      console.error("Error deleting room:", err);
+      alert(err.message || "Failed to delete room. Please try again.");
+    }
   }
 
-  const filteredRooms = rooms.filter(room =>
-    room.title.toLowerCase().includes(query.toLowerCase())
-  );
+  const filteredRooms = rooms.filter(room => {
+    if (!query) return true;
+    const title = room.title || "";
+    return title.toLowerCase().includes(query.toLowerCase());
+  });
 
   return (
     <div className="admin-container">
@@ -174,7 +228,7 @@ function ManageRoom() {
         <Link to="/admin/manage-user">Manage User</Link>
         <Link to="/admin/manage-payment">Payment & Reports</Link>
         <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
-        
+        <Link to="/admin/manage-staff">Manage Staff</Link>
       </div>
 
       {/* MAIN */}
@@ -184,7 +238,19 @@ function ManageRoom() {
           <button className="logout-btn">Logout</button>
         </div>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && (
+          <div className="error-box" style={{ 
+            background: "#fee2e2", 
+            color: "#991b1b", 
+            padding: "14px 18px", 
+            borderRadius: "14px", 
+            fontSize: "14px", 
+            marginBottom: "26px",
+            border: "1px solid #fecaca"
+          }}>
+            <strong>Error:</strong> {error}
+          </div>
+        )}
 
         {showForm ? (
           <div className="card">
@@ -282,9 +348,35 @@ function ManageRoom() {
                 <textarea name="description" value={form.description} onChange={handleChange} />
               </div>
 
+              {error && (
+                <div style={{ 
+                  background: "#fee2e2", 
+                  color: "#991b1b", 
+                  padding: "12px", 
+                  borderRadius: "8px", 
+                  marginBottom: "16px",
+                  fontSize: "14px"
+                }}>
+                  {error}
+                </div>
+              )}
               <div className="form-actions">
-                <button type="submit" className="primary-btn">{editingId ? "Update Room" : "Add Room"}</button>
-                <button type="button" className="secondary-btn" onClick={() => { setShowForm(false); resetForm(); }}>Cancel</button>
+                <button 
+                  type="submit" 
+                  className="primary-btn"
+                  disabled={submitting}
+                  style={{ opacity: submitting ? 0.6 : 1, cursor: submitting ? "not-allowed" : "pointer" }}
+                >
+                  {submitting ? "Processing..." : editingId ? "Update Room" : "Add Room"}
+                </button>
+                <button 
+                  type="button" 
+                  className="secondary-btn" 
+                  onClick={() => { setShowForm(false); resetForm(); setError(""); }}
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
@@ -304,24 +396,54 @@ function ManageRoom() {
               </div>
 
               {loading ? (
-                <p>Loading...</p>
+                <div style={{ padding: "40px", textAlign: "center" }}>
+                  <p>Loading rooms...</p>
+                </div>
+              ) : filteredRooms.length === 0 ? (
+                <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+                  <p>{query ? `No rooms found matching "${query}"` : "No rooms found. Click 'Add New Room' to create one."}</p>
+                </div>
               ) : (
                 <table className="room-table">
+                  <thead>
+                    <tr>
+                      <th>Image</th>
+                      <th>Title</th>
+                      <th>Size</th>
+                      <th>Capacity</th>
+                      <th>Price</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {filteredRooms.map(room => (
                       <tr key={room._id}>
                         <td>
-                          {room.images?.[0] && (
-                            <img src={`${API}/${room.images[0]}`} alt="" style={{ width: "60px", borderRadius: "6px" }} />
+                          {room.images?.[0] ? (
+                            <img src={`${API}/${room.images[0]}`} alt={room.title} style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "6px" }} />
+                          ) : (
+                            <div style={{ width: "60px", height: "60px", backgroundColor: "#e5e7eb", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: "12px" }}>
+                              No Image
+                            </div>
                           )}
                         </td>
-                        <td>{room.title}</td>
-                        <td>{room.size} m²</td>
-                        <td>{room.capacity} Guests</td>
-                        <td>₹{room.pricing?.standardRate}</td>
+                        <td>{room.title || "Untitled Room"}</td>
+                        <td>{room.size ? `${room.size} m²` : "N/A"}</td>
+                        <td>{room.capacity ? `${room.capacity} Guests` : "N/A"}</td>
+                        <td>₹{room.pricing?.standardRate || room.standardRate || "0"}</td>
                         <td>
-                          <button onClick={() => startEdit(room)}>Edit</button>
-                          <button onClick={() => deleteRoom(room._id)}>Delete</button>
+                          <button 
+                            onClick={() => startEdit(room)}
+                            style={{ marginRight: "8px", padding: "6px 12px", backgroundColor: "#6366f1", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => deleteRoom(room._id)}
+                            style={{ padding: "6px 12px", backgroundColor: "#ef4444", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}

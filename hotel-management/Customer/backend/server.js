@@ -50,7 +50,6 @@ app.use("/api/admin/staff", adminStaffRoutes);
 app.use("/api/staff/auth", staffAuth);
 
 // 4. Booking & Stripe Payment Routes (UPDATED)
-// यहाँ adminBookings.js को रजिस्टर किया गया है जिसमें Stripe के लॉजिक्स हैं
 const adminBookings = require("./routes/adminBookings");
 app.use("/api/admin/bookings", adminBookings);
 
@@ -64,3 +63,20 @@ app.get("/", (req, res) => res.status(200).send("✅ Hotel Management API is run
 ================================ */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+
+// Booking routes
+// const roomRoutes = require("./routes/room");
+app.use("/api/rooms", roomRoutes);
+
+const adminUserRoutes = require("./routes/adminUsers");
+app.use("/api/admin/users", adminUserRoutes);
+
+const adminRoutes = require("./routes/admin");
+app.use("/api/admin", adminRoutes);
+
+
+app.use("/api/admin", require("./routes/adminDashboard"));
+app.use("/api/admin", require("./routes/adminBookings"));
+app.use("/api/admin", require("./routes/adminRooms"));
+app.use("/api/admin", require("./routes/adminPayments"));
+module.exports = app;
