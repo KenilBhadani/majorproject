@@ -7,29 +7,21 @@ const authRoutes = require("./routes/auth");
 
 const app = express();
 
-/* ================================
-   MIDDLEWARE
-================================ */
+/* ========MIDDLEWARE============= */
 app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* ================================
-   MONGODB CONNECTION
-================================ */
+/* =============MONGODB CONNECTION=============== */
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected successfully"))
   .catch(err => console.error("❌ MongoDB connection error:", err.message));
 
-/* ================================
-   STATIC UPLOADS
-================================ */
+/* ===============STATIC UPLOADS=============== */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-/* ================================
-   ROUTES REGISTRATION
-================================ */
+/* ==============ROUTES REGISTRATION================ */
 
 // 1. Room Routes
 const adminRooms = require("./routes/adminRooms");
@@ -53,14 +45,10 @@ app.use("/api/staff/auth", staffAuth);
 const adminBookings = require("./routes/adminBookings");
 app.use("/api/admin/bookings", adminBookings);
 
-/* ================================
-   HEALTH CHECK
-================================ */
+/* =============HEALTH CHECK================ */
 app.get("/", (req, res) => res.status(200).send("✅ Hotel Management API is running with Stripe Integration"));
 
-/* ================================
-   START SERVER
-================================ */
+/* ==============START SERVER=================*/
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
 
