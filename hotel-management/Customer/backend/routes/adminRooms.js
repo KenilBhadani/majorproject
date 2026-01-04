@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const Room = require("../models/RoomListing");
 const upload = require("../middleware/upload");
+const fs = require("fs");
+const path = require("path");
 
 /* ===============================
    GET ALL ACTIVE ROOMS
@@ -19,7 +21,7 @@ router.get("/", async (req, res) => {
 /* ===============================
    CREATE ROOM
 ================================ */
-router.post("/", upload.single("image"), async (req, res) => {
+router.post("/", upload.array("images", 5), async (req, res) => {
   try {
     const {
       title,
@@ -37,6 +39,10 @@ router.post("/", upload.single("image"), async (req, res) => {
       currency,
     } = req.body;
 
+    // debug: log files received and body keys
+    console.log("CREATE ROOM - FILES RECEIVED:", req.files ? req.files.length : 0, req.files ? req.files.map(f => f.originalname) : []);
+    console.log("CREATE ROOM - BODY KEYS:", Object.keys(req.body));
+
     // ✅ VALIDATION
     if (
       !title ||
@@ -50,6 +56,9 @@ router.post("/", upload.single("image"), async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
+    // safety: do not allow more than 5 files in creation
+    if (req.files && req.files.length > 5) return res.status(400).json({ message: "Maximum 5 images allowed per room" });
+
     const room = await Room.create({
       title,
       description,
@@ -59,7 +68,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       bedType,
       availableRooms: Number(availableRooms),
 
-      images: req.file ? [`uploads/${req.file.filename}`] : [],
+      images: req.files && req.files.length ? req.files.map(f => `uploads/${f.filename}`) : [],
 
       rates: {
         planName: planName || "Standard Plan",
@@ -91,8 +100,34 @@ router.post("/", upload.single("image"), async (req, res) => {
 /* ===============================
    UPDATE ROOM
 ================================ */
-router.put("/:id", upload.single("image"), async (req, res) => {
+router.put("/:id", upload.array("images", 5), async (req, res) => {
   try {
+    // load existing room so we can append/remove images
+    const room = await Room.findById(req.params.id);
+    if (!room) return res.status(404).json({ message: "Room not found" });
+
+    // debug: log files received and body keys
+    console.log("UPDATE ROOM - FILES RECEIVED:", req.files ? req.files.length : 0, req.files ? req.files.map(f => f.originalname) : []);
+    console.log("UPDATE ROOM - BODY KEYS:", Object.keys(req.body));
+
+    // enforce maximum images per room
+    const existingCount = (room.images || []).length;
+    const newCount = req.files ? req.files.length : 0;
+    if (existingCount + newCount > 5) {
+      // remove newly uploaded files to avoid orphan files
+      if (req.files && req.files.length) {
+        req.files.forEach(f => {
+          try {
+            const fp = path.join(__dirname, "..", "uploads", f.filename);
+            if (fs.existsSync(fp)) fs.unlinkSync(fp);
+          } catch (e) {
+            console.error("Failed to cleanup uploaded file:", e);
+          }
+        });
+      }
+      return res.status(400).json({ message: "Maximum 5 images allowed per room. Remove some existing images before adding new ones." });
+    }
+
     const updateData = {
       title: req.body.title,
       description: req.body.description,
@@ -126,19 +161,64 @@ router.put("/:id", upload.single("image"), async (req, res) => {
         : undefined,
     };
 
-    if (req.file) {
-      updateData.images = [`uploads/${req.file.filename}`];
+    // append newly uploaded images
+    if (req.files && req.files.length) {
+      const newImages = req.files.map(f => `uploads/${f.filename}`);
+      updateData.images = (room.images || []).concat(newImages);
     }
 
-    const room = await Room.findByIdAndUpdate(
+    // remove any images requested for deletion (client may send JSON array in removeImages)
+    if (req.body.removeImages) {
+      try {
+        const toRemove = JSON.parse(req.body.removeImages);
+        // filter them out
+        updateData.images = (updateData.images || room.images || []).filter(img => !toRemove.includes(img));
+        // delete files from disk
+        toRemove.forEach(img => {
+          const filePath = path.join(__dirname, "..", img);
+          if (fs.existsSync(filePath)) {
+            fs.unlink(filePath, err => { if (err) console.error("Failed to delete image file:", err); });
+          }
+        });
+      } catch (e) {
+        console.warn("Invalid removeImages payload", e);
+      }
+    }
+
+    const updated = await Room.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
     );
 
-    res.json(room);
+    res.json(updated);
   } catch (err) {
     console.error("UPDATE ROOM ERROR:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* ===============================
+   DELETE SINGLE IMAGE FROM ROOM
+================================ */
+router.delete("/:id/images", async (req, res) => {
+  try {
+    const { image } = req.body;
+    if (!image) return res.status(400).json({ message: "Image path required" });
+    const room = await Room.findById(req.params.id);
+    if (!room) return res.status(404).json({ message: "Room not found" });
+
+    room.images = (room.images || []).filter(i => i !== image);
+    await room.save();
+
+    const filePath = path.join(__dirname, "..", image);
+    if (fs.existsSync(filePath)) {
+      fs.unlink(filePath, err => { if (err) console.error("Failed to delete image file:", err); });
+    }
+
+    res.json({ success: true, images: room.images });
+  } catch (err) {
+    console.error("DELETE ROOM IMAGE ERROR:", err);
     res.status(500).json({ message: err.message });
   }
 });

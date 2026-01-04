@@ -33,10 +33,13 @@ function ManageRoom() {
     depositPolicy: "",
     standardRate: "",
     currency: "INR",
-    image: "" // for edit preview
+    images: [] // for edit preview (array of paths)
   });
 
-  const [imageFile, setImageFile] = useState(null);
+  const MAX_IMAGES = 5;
+  const [imageFiles, setImageFiles] = useState([]); // new files selected by admin
+  const [previewUrls, setPreviewUrls] = useState([]); // object URLs for previews
+  const fileInputRef = useRef(null); // ref to clear file input programmatically
 
   useEffect(() => {
     if (didFetch.current) return;
@@ -106,15 +109,17 @@ function ManageRoom() {
       depositPolicy: room.rates?.depositPolicy || "",
       standardRate: room.pricing?.standardRate || "",
       currency: room.pricing?.currency || "INR",
-      image: room.images?.[0] || ""
+      images: room.images || []
     });
-    setImageFile(null);
+    setImageFiles([]);
+    setPreviewUrls([]);
     setShowForm(true);
   }
 
   function resetForm() {
     setEditingId(null);
-    setImageFile(null);
+    setImageFiles([]);
+    setPreviewUrls([]);
     setForm({
       title: "",
       description: "",
@@ -130,7 +135,7 @@ function ManageRoom() {
       depositPolicy: "",
       standardRate: "",
       currency: "INR",
-      image: ""
+      images: []
     });
   }
 
@@ -156,7 +161,16 @@ function ManageRoom() {
       fd.append("standardRate", form.standardRate);
       fd.append("currency", form.currency);
 
-      if (imageFile) fd.append("image", imageFile);
+      // validate total images count
+      const totalImages = (form.images ? form.images.length : 0) + imageFiles.length;
+      if (totalImages > MAX_IMAGES) {
+        setError(`You can only save up to ${MAX_IMAGES} images per room. Remove ${totalImages - MAX_IMAGES} image(s) and try again.`);
+        setSubmitting(false);
+        return;
+      }
+
+      // append newly selected files
+      imageFiles.forEach(file => fd.append("images", file));
 
       const url = editingId
         ? `${API}/api/admin/rooms/${editingId}`
@@ -209,6 +223,80 @@ function ManageRoom() {
       console.error("Error deleting room:", err);
       alert(err.message || "Failed to delete room. Please try again.");
     }
+  }
+
+  // cleanup object URLs when previews change / component unmounts
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
+
+  async function removeExistingImage(image) {
+    if (!editingId) return;
+    if (!window.confirm("Remove this image?")) return;
+    try {
+      const res = await fetch(`${API}/api/admin/rooms/${editingId}/images`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ image }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || "Failed to remove image");
+      }
+
+      // update local form images and refetch list
+      setForm(prev => ({ ...prev, images: (prev.images || []).filter(i => i !== image) }));
+      await fetchRooms();
+    } catch (err) {
+      console.error("Error removing image:", err);
+      setError(err.message || "Failed to remove image");
+    }
+  }
+
+  function removeSelectedFile(index) {
+    const newFiles = [...imageFiles];
+    const newPreviews = [...previewUrls];
+    // revoke object URL
+    if (newPreviews[index]) URL.revokeObjectURL(newPreviews[index]);
+    newFiles.splice(index, 1);
+    newPreviews.splice(index, 1);
+    setImageFiles(newFiles);
+    setPreviewUrls(newPreviews);
+  }
+
+  // allow multiple picks across separate file-dlg opens (append behavior)
+  function handleFileSelect(e) {
+    const raw = Array.from(e.target.files || []);
+    if (raw.length === 0) return;
+
+    const existingCount = editingId ? (form.images || []).length : 0;
+    const remaining = Math.max(0, MAX_IMAGES - existingCount - imageFiles.length);
+
+    if (remaining <= 0) {
+      setError(`You already have ${MAX_IMAGES} images. Remove some to add more.`);
+      // clear input so the user can re-open it
+      if (fileInputRef && fileInputRef.current) fileInputRef.current.value = null;
+      return;
+    }
+
+    if (raw.length > remaining) {
+      setError(`You can only add ${remaining} more image${remaining === 1 ? '' : 's'}`);
+    } else {
+      setError("");
+    }
+
+    const toAdd = raw.slice(0, remaining);
+    setImageFiles(prev => [...prev, ...toAdd]);
+    setPreviewUrls(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))]);
+
+    // clear input so same files can be re-picked later if needed
+    if (fileInputRef && fileInputRef.current) fileInputRef.current.value = null;
   }
 
   const filteredRooms = rooms.filter(room => {
@@ -335,11 +423,34 @@ function ManageRoom() {
               </div>
 
               <div className="form-group full">
-                <label>Room Image</label>
-                <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} />
+                <label>Room Images</label>
+                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} />
+                <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>
+                  {`You can add ${Math.max(0, MAX_IMAGES - ((editingId ? (form.images || []).length : 0) + imageFiles.length))} more image${Math.max(0, MAX_IMAGES - ((editingId ? (form.images || []).length : 0) + imageFiles.length)) === 1 ? '' : 's'} (max ${MAX_IMAGES}).`}
+                </div>
 
-                {editingId && form.image && !imageFile && (
-                  <img src={`${API}/${form.image}`} alt="Room" style={{ width: "120px", marginTop: "10px", borderRadius: "8px" }} />
+                {/* Existing images (already uploaded) */}
+                {editingId && form.images && form.images.length > 0 && (
+                  <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
+                    {form.images.map((img, idx) => (
+                      <div key={idx} style={{ position: "relative" }}>
+                        <img src={`${API}/${img}`} alt={`Room ${idx}`} style={{ width: "120px", borderRadius: "8px" }} />
+                        <button type="button" onClick={() => removeExistingImage(img)} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "white", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Previews of newly selected files */}
+                {previewUrls && previewUrls.length > 0 && (
+                  <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
+                    {previewUrls.map((url, i) => (
+                      <div key={i} style={{ position: "relative" }}>
+                        <img src={url} alt={`Preview ${i}`} style={{ width: "120px", borderRadius: "8px" }} />
+                        <button type="button" onClick={() => removeSelectedFile(i)} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "white", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
