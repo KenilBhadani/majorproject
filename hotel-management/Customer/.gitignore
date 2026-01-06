@@ -1,23 +1,48 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# =========================
+# NODE MODULES & PACKAGE FILES
+# =========================
 /node_modules
 /.pnp
 .pnp.js
 
-# testing
+# =========================
+# TESTING
+# =========================
 /coverage
 
-# production
+# =========================
+# PRODUCTION / BUILD
+# =========================
 /build
 
-# misc
+# =========================
+# MAC & SYSTEM FILES
+# =========================
 .DS_Store
+
+# =========================
+# ENVIRONMENT FILES (Secrets)
+# =========================
+.env
 .env.local
+.env.development
+.env.test
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
 
+# =========================
+# LOG FILES
+# =========================
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# =========================
+# OPTIONAL / MISC
+# =========================
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace

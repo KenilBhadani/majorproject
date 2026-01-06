@@ -3,68 +3,94 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
-const authRoutes = require("./routes/auth");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 
-/* ========MIDDLEWARE============= */
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+/* =========================
+   MIDDLEWARE
+========================= */
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-/* =============MONGODB CONNECTION=============== */
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB connected successfully"))
-  .catch(err => console.error("❌ MongoDB connection error:", err.message));
-
-/* ===============STATIC UPLOADS=============== */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-/* ==============ROUTES REGISTRATION================ */
+/* =========================
+   MONGODB CONNECTION
+========================= */
+mongoose
+  .connect(process.env.MONGO_URI) // removed deprecated options
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB error:", err));
 
-// 1. Room Routes
-const adminRooms = require("./routes/adminRooms");
-const roomRoutes = require("./routes/room");
-app.use("/api/rooms", roomRoutes);
-app.use("/api/admin/rooms", adminRooms);
-app.use("/api/public/rooms", roomRoutes);
+/* =========================
+   ROUTES
+========================= */
+// Auth
+app.use("/api/auth", require("./routes/auth"));
 
-// 2. Auth Routes
-app.use("/api/auth", authRoutes);
+// Rooms
+app.use("/api/rooms", require("./routes/room"));
+app.use("/api/admin/rooms", require("./routes/adminRooms"));
 
-// 3. Staff & Admin Staff Routes
-const staffDashboard = require("./routes/staffDashboard");
-const adminStaffRoutes = require("./routes/adminStaff");
-const staffAuth = require("./routes/staffAuth");
-app.use("/api/staff", staffDashboard);
-app.use("/api/admin/staff", adminStaffRoutes);
-app.use("/api/staff/auth", staffAuth);
+// Staff & Admin
+app.use("/api/staff", require("./routes/staffDashboard"));
+app.use("/api/admin/staff", require("./routes/adminStaff"));
+app.use("/api/staff/auth", require("./routes/staffAuth"));
 
-// 4. Booking & Stripe Payment Routes (UPDATED)
-const adminBookings = require("./routes/adminBookings");
-app.use("/api/admin/bookings", adminBookings);
+// Admin Users
+app.use("/api/admin/users", require("./routes/adminUsers"));
 
-/* =============HEALTH CHECK================ */
-app.get("/", (req, res) => res.status(200).send("✅ Hotel Management API is running with Stripe Integration"));
+// Admin Bookings & Payments
+app.use("/api/admin/payments", require("./routes/adminPayments"));
+app.use("/api/bookings", require("./routes/booking"));
 
-/* ==============START SERVER=================*/
+/* =========================
+   STRIPE – PAYMENT INTENT
+========================= */
+app.post("/api/bookings/create-payment-intent", async (req, res) => {
+  try {
+    const { amount, bookingData } = req.body;
+
+    if (!amount || typeof amount !== "number" || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // INR → paise
+      currency: "inr",
+      payment_method_types: ["card"],
+      metadata: {
+        email: bookingData?.email || "guest@example.com",
+        roomId: bookingData?.roomId || "",
+        name: `${bookingData?.firstName || ""} ${bookingData?.lastName || ""}`,
+      },
+    });
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    console.error("Stripe Error:", error.message, error.raw || "");
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* =========================
+   HEALTH CHECK
+========================= */
+app.get("/", (_req, res) => {
+  res.send("✅ Hotel API running");
+});
+
+/* =========================
+   START SERVER
+========================= */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-
-// Booking routes
-// const roomRoutes = require("./routes/room");
-app.use("/api/rooms", roomRoutes);
-
-const adminUserRoutes = require("./routes/adminUsers");
-app.use("/api/admin/users", adminUserRoutes);
-
-const adminRoutes = require("./routes/admin");
-app.use("/api/admin", adminRoutes);
-
-
-app.use("/api/admin", require("./routes/adminDashboard"));
-app.use("/api/admin", require("./routes/adminBookings"));
-app.use("/api/admin", require("./routes/adminRooms"));
-app.use("/api/admin", require("./routes/adminPayments"));
-module.exports = app;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

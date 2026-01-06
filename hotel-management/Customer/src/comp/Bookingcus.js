@@ -1,230 +1,358 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Users, ShieldCheck, Info, ArrowRight } from "lucide-react";
+import Header2 from "./Header2";
+import Footer from "./footer";
+import BookingSteps from "./Bookingstep";
+import FloatingInput from "./FloatingInput"; // Custom input component
 
-/* ================= FLOATING INPUT COMPONENT ================= */
-const FloatingInput = ({ id, label, value, required = false, type = "text", onChange }) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const isActive = value || isFocused;
-
-  return (
-    <div className="relative w-full">
-      <input
-        id={id}
-        name={id}
-        type={type}
-        value={value}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        onChange={onChange}
-        className={`peer w-full border rounded-lg px-4 py-3 bg-white text-slate-800 outline-none transition-all
-          ${isActive ? "border-amber-600 ring-1 ring-amber-600" : "border-slate-300"}
-        `}
-        required={required}
-      />
-      <label
-        htmlFor={id}
-        className={`absolute left-3 transition-all duration-200 pointer-events-none px-1 bg-white
-          ${isActive ? "-top-2.5 text-xs text-amber-600 font-bold" : "top-3.5 text-slate-500"}
-        `}
-      >
-        {label} {required && "*"}
-      </label>
-    </div>
-  );
-};
-
-/* ================= MAIN BOOKING FORM ================= */
 export default function BookingForm() {
   const location = useLocation();
   const navigate = useNavigate();
-  
-  // Data passed from RoomRow Select button via state
-  const room = location.state?.room;
-  const searchParams = location.state?.searchParams;
 
-  // Debugging log: remove this after you see the Standard Rate working
-  console.log("Room Data Received:", room);
+  // Backend API URL from .env
+  const API_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
 
-  useEffect(() => {
-    if (!room) navigate("/"); 
-  }, [room, navigate]);
+  const stripe = useStripe();
+  const elements = useElements();
 
-  /* ---------------- DATE & NIGHT CALCULATION ---------------- */
-  const { checkInDate, checkOutDate, totalNights } = useMemo(() => {
-    const start = searchParams?.checkIn ? new Date(searchParams.checkIn) : new Date();
-    const end = searchParams?.checkOut ? new Date(searchParams.checkOut) : new Date(new Date().getTime() + 86400000);
-    
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-    
-    return { checkInDate: start, checkOutDate: end, totalNights: diffDays };
-  }, [searchParams]);
-
-  /* ---------------- PRICE LOGIC ---------------- */
-  // Matches room.pricing.standardRate structure from your RoomRow component
-  const pricePerNight = useMemo(() => {
-    return Number(room?.pricing?.standardRate || 0);
-  }, [room]);
-
-  const subtotal = pricePerNight * totalNights;
-  const taxRate = 0.18;
-  const taxes = Math.round(subtotal * taxRate);
-  const totalPayable = subtotal + taxes;
-
-  const [form, setForm] = useState({
-    title: "", firstName: "", lastName: "", email: "", phone: "", gst: "", requests: "", agree: false,
+  // Selected room & search params (we only read these, don't need setters)
+  const [room] = useState(() => {
+    const saved = sessionStorage.getItem("selectedRoom");
+    return location.state?.room || (saved ? JSON.parse(saved) : null);
   });
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [searchParams] = useState(() => {
+    const saved = sessionStorage.getItem("searchParams");
+    return location.state?.searchParams || (saved ? JSON.parse(saved) : null);
+  });
 
-  const requiredValid = form.title && form.firstName && form.lastName && form.email && form.phone && form.agree;
+  useEffect(() => {
+    if (!room || !searchParams) {
+      navigate("/rooms"); // Redirect if no room or search
+    } else {
+      sessionStorage.setItem("selectedRoom", JSON.stringify(room));
+      sessionStorage.setItem("searchParams", JSON.stringify(searchParams));
+    }
+  }, [room, searchParams, navigate]);
+
+  // Calculate check-in, check-out, nights
+  const { checkInDate, checkOutDate, nights } = useMemo(() => {
+    const inD = new Date(searchParams.checkIn);
+    const outD = new Date(searchParams.checkOut);
+    const diff = Math.max(1, Math.ceil((outD - inD) / 86400000));
+    return { checkInDate: inD, checkOutDate: outD, nights: diff };
+  }, [searchParams]);
+
+  // Pricing calculation
+  const rate = Number(room?.pricing?.standardRate || 0);
+  const subtotal = rate * nights;
+  const gst = Math.round(subtotal * 0.18);
+  const total = subtotal + gst;
+
+  const imageUrl = room?.images?.[0]
+    ? `${API_URL}/${room.images[0].replace(/^\//, "")}`
+    : "https://via.placeholder.com/400x250";
+
+  // Form state
+  const [form, setForm] = useState({
+    title: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    gst: "",
+    requests: "",
+    agree: false,
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Form validation
+  const valid =
+    form.title &&
+    form.firstName &&
+    form.lastName &&
+    form.email &&
+    form.phone &&
+    form.agree;
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
-    setForm((s) => ({ ...s, [name]: type === "checkbox" ? checked : value }));
-    if (error) setError("");
-  }
-
-  function handlePhoneChange(e) {
-    const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-    setForm((s) => ({ ...s, phone: digits }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!requiredValid) {
-      setError("Please fill all required fields.");
-      return;
-    }
+    if (!valid || !stripe || !elements) return;
 
     setLoading(true);
+    setError("");
 
-    const payload = {
-      title: form.title,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      email: form.email,
-      mobileNo: form.phone,
-      gstNo: form.gst || null,
-      specialRequest: form.requests || null,
-      room: room?._id,
-      roomType: room?.title,
-      checkIn: checkInDate,
-      checkOut: checkOutDate,
-      pricePerNight,
-      totalNights,
-      totalAmount: totalPayable,
-    };
+    const card = elements.getElement(CardElement);
 
     try {
-      const res = await fetch("http://localhost:5000/api/bookings/create", {
+      // 1️⃣ Create PaymentIntent on server
+      const res = await fetch(`${API_URL}/api/bookings/create-payment-intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ amount: total, bookingData: form }),
       });
 
-      if (res.ok) {
-        alert("Booking Confirmed Successfully!");
-        navigate("/dashboard");
+      const data = await res.json();
+
+      if (!res.ok || !data.clientSecret) {
+        throw new Error(data.error || "Failed to create payment intent");
+      }
+
+      // 2️⃣ Confirm payment on client
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
+        data.clientSecret,
+        {
+          payment_method: {
+            card,
+            billing_details: {
+              name: `${form.firstName} ${form.lastName}`,
+              email: form.email,
+            },
+          },
+        }
+      );
+
+      if (stripeError) {
+        setError(stripeError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (paymentIntent?.status === "succeeded") {
+        // 3️⃣ Save booking to backend with all details
+        const saveRes = await fetch(`${API_URL}/api/bookings/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingData: form,
+            paymentIntentId: paymentIntent.id,
+            roomId: room._id,
+            roomTitle: room.title,
+            ratePerNight: rate,
+            checkIn: checkInDate.toISOString(),
+            checkOut: checkOutDate.toISOString(),
+            nights: nights,
+            subtotal: subtotal,
+            gst: gst,
+            amount: total,
+          }),
+        });
+
+        const saveData = await saveRes.json();
+
+        if (!saveRes.ok) {
+          throw new Error(saveData.error || "Failed to save booking");
+        }
+
+        alert("Booking Successful!");
+        navigate("/booking-success");
       } else {
-        const data = await res.json();
-        setError(data.message || "Booking failed.");
+        setError("Payment was not successful. Please try again.");
+        setLoading(false);
       }
     } catch (err) {
-      setError("Server connection failed.");
-    } finally {
+      console.error("Booking Error:", err);
+      setError(err.message || "Payment failed. Try again.");
       setLoading(false);
     }
   }
 
-  if (!room) return null;
+  if (!room) return null; // Prevent rendering if no room selected
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 font-sans text-slate-900">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
+    <>
+      <Header2 />
+      <BookingSteps activeStep={2} />
 
-        {/* GUEST FORM */}
-        <section className="lg:col-span-2 bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-          <h2 className="text-2xl font-bold mb-6">Complete Your Booking</h2>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <select name="title" value={form.title} onChange={handleChange} className="border border-slate-300 px-3 py-3 rounded-lg bg-white outline-none focus:border-amber-600" required>
-                <option value="">Title *</option>
-                <option value="Mr">Mr</option>
-                <option value="Mrs">Mrs</option>
-                <option value="Ms">Ms</option>
-              </select>
-              <FloatingInput id="firstName" label="First Name" required value={form.firstName} onChange={handleChange} />
-              <FloatingInput id="lastName" label="Last Name" required value={form.lastName} onChange={handleChange} />
+      <div className="bg-[#fcfcfd] min-h-screen font-sans">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <header className="mb-10">
+            <h1 className="text-4xl font-black text-slate-900">Complete Your Reservation</h1>
+            <p className="text-slate-500 mt-2">
+              Please provide your details to secure this booking.
+            </p>
+          </header>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            {/* LEFT FORM */}
+            <div className="lg:col-span-8">
+              <section className="bg-white p-8 rounded-[2rem] shadow-sm border">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="p-2 bg-amber-50 rounded-lg">
+                    <Users className="text-amber-600" />
+                  </div>
+                  <h2 className="text-xl font-bold">Guest Details</h2>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  <div className="grid md:grid-cols-4 gap-6">
+                    <select
+                      name="title"
+                      value={form.title}
+                      onChange={handleChange}
+                      required
+                      className="h-[58px] pt-4 px-4 border-b-2 border-slate-200 bg-slate-50 rounded-t-lg"
+                    >
+                      <option value="">Title</option>
+                      <option>Mr.</option>
+                      <option>Mrs.</option>
+                      <option>Ms.</option>
+                    </select>
+
+                    <FloatingInput
+                      id="firstName"
+                      name="firstName"
+                      label="First Name"
+                      required
+                      value={form.firstName}
+                      onChange={handleChange}
+                    />
+                    <FloatingInput
+                      id="lastName"
+                      name="lastName"
+                      label="Last Name"
+                      required
+                      value={form.lastName}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <FloatingInput
+                      id="email"
+                      name="email"
+                      type="email"
+                      label="Email"
+                      required
+                      value={form.email}
+                      onChange={handleChange}
+                    />
+                    <FloatingInput
+                      id="phone"
+                      name="phone"
+                      label="Mobile"
+                      required
+                      value={form.phone}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <FloatingInput
+                    id="gst"
+                    name="gst"
+                    label="GST (Optional)"
+                    value={form.gst}
+                    onChange={handleChange}
+                  />
+
+                  <textarea
+                    name="requests"
+                    placeholder="Special requests"
+                    rows="3"
+                    className="w-full border rounded-2xl p-4"
+                    value={form.requests}
+                    onChange={handleChange}
+                  />
+
+                  {/* Stripe Card Element */}
+                  <div className="mt-6">
+                    <label className="block mb-2 font-medium">Card Details</label>
+                    <div className="border rounded-xl p-3">
+                      <CardElement
+                        options={{
+                          style: {
+                            base: {
+                              fontSize: "16px",
+                              color: "#111",
+                              "::placeholder": { color: "#888" },
+                            },
+                            invalid: { color: "#e53e3e" },
+                          },
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {error && <p className="text-red-500 mt-2">{error}</p>}
+
+                  <label className="flex gap-3 mt-4">
+                    <input
+                      type="checkbox"
+                      name="agree"
+                      checked={form.agree}
+                      onChange={handleChange}
+                    />
+                    <span>I agree to the terms and policies</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={!valid || loading || !stripe || !elements}
+                    className={`w-full py-5 rounded-2xl font-black text-lg mt-4
+                      ${valid ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-400"}`}
+                  >
+                    {loading ? "Processing..." : `Pay ₹ ${total.toLocaleString("en-IN")}`}{" "}
+                    <ArrowRight className="inline ml-2" />
+                  </button>
+                </form>
+              </section>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FloatingInput id="email" type="email" label="Email Address" required value={form.email} onChange={handleChange} />
-              <input type="tel" placeholder="Mobile Number *" value={form.phone} onChange={handlePhoneChange} className="border border-slate-300 px-4 py-3 rounded-lg outline-none focus:border-amber-600" required />
-            </div>
+            {/* RIGHT SUMMARY */}
+            <aside className="lg:col-span-4">
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden sticky top-24">
+                <img src={imageUrl} alt={room.title} className="h-44 w-full object-cover" />
+                <div className="p-6 space-y-4">
+                  <h3 className="text-xl font-bold">{room.title}</h3>
+                  <div className="flex justify-between text-sm">
+                    <span>Check-In</span>
+                    <span>{checkInDate.toDateString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Check-Out</span>
+                    <span>{checkOutDate.toDateString()}</span>
+                  </div>
 
-            <FloatingInput id="gst" label="GST Number (Optional)" value={form.gst} onChange={handleChange} />
-            <textarea name="requests" rows="3" placeholder="Special Requests..." value={form.requests} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-amber-600" />
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span>₹ {subtotal}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>GST (18%)</span>
+                      <span>₹ {gst}</span>
+                    </div>
+                    <div className="flex justify-between font-black text-lg">
+                      <span>Total</span>
+                      <span className="text-amber-600">₹ {total}</span>
+                    </div>
+                  </div>
 
-            {error && <p className="text-red-600 text-sm font-bold bg-red-50 p-3 rounded-lg">{error}</p>}
-
-            <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input type="checkbox" name="agree" checked={form.agree} onChange={handleChange} className="w-5 h-5 accent-amber-600 cursor-pointer" />
-              <span className="text-sm text-slate-600">I agree to the Terms & Policy</span>
-            </label>
-
-            <button type="submit" disabled={!requiredValid || loading} className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-all ${requiredValid && !loading ? "bg-slate-900 hover:bg-black active:scale-95" : "bg-slate-300 cursor-not-allowed"}`}>
-              {loading ? "Processing..." : `Confirm Booking • ₹ ${totalPayable.toLocaleString("en-IN")}`}
-            </button>
-          </form>
-        </section>
-
-        {/* SUMMARY SIDEBAR */}
-        <aside className="h-fit sticky top-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h3 className="text-xl font-bold mb-4 tracking-tight">Booking Summary</h3>
-            
-            <img 
-              src={room.images?.[0] ? `http://localhost:5000${room.images[0].startsWith('/') ? '' : '/'}${room.images[0]}` : "https://via.placeholder.com/400x250"} 
-              alt={room.title} 
-              className="rounded-xl mb-4 w-full h-44 object-cover" 
-            />
-
-            <div className="mb-4">
-              <h4 className="font-bold text-lg uppercase tracking-wide">{room.title}</h4>
-              <div className="mt-3 p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 space-y-1">
-                 <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Stay Duration</p>
-                 <p className="text-sm text-slate-700">
-                   {checkInDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — {checkOutDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                 </p>
-                 <p className="text-sm font-bold text-indigo-700">{totalNights} Night(s)</p>
+                  <div className="bg-emerald-50 p-3 rounded-xl flex gap-2 text-xs">
+                    <Info /> Free cancellation before 48 hrs
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="space-y-3 pt-4 border-t border-slate-100">
-              <div className="flex justify-between text-slate-600 text-sm">
-                <span>Standard Rate / Night</span>
-                <span className="font-bold text-slate-800">
-                  {pricePerNight > 0 ? `₹ ${pricePerNight.toLocaleString("en-IN")}` : "Not Set"}
-                </span>
+              <div className="text-center mt-6 text-xs text-slate-400 flex justify-center gap-2">
+                <ShieldCheck size={14} /> Secure Payment
               </div>
-              <div className="flex justify-between text-slate-500 text-sm italic">
-                <span>Room Subtotal</span>
-                <span>₹ {subtotal.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between text-slate-500 text-sm">
-                <span>GST (18%)</span>
-                <span>₹ {taxes.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between font-bold text-xl pt-4 border-t border-dashed border-slate-200 mt-2">
-                <span className="text-slate-900">Total Payable</span>
-                <span className="text-amber-600 font-extrabold">₹ {totalPayable.toLocaleString("en-IN")}</span>
-              </div>
-            </div>
+            </aside>
           </div>
-        </aside>
+        </div>
+        <Footer />
       </div>
-    </div>
+    </>
   );
 }

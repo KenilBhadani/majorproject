@@ -4,7 +4,7 @@ const RoomListing = require("../models/RoomListing");
 const Booking = require("../models/Booking");
 
 /* =========================
-   GET ALL ROOMS
+   GET ALL ROOMS (UNCHANGED)
 ========================= */
 router.get("/", async (req, res) => {
   try {
@@ -17,13 +17,13 @@ router.get("/", async (req, res) => {
 });
 
 /* =========================
-   GET AVAILABLE ROOMS (FIXED)
+   GET AVAILABLE ROOMS (UPDATED)
 ========================= */
 router.get("/available", async (req, res) => {
   try {
     const { roomType, guests, checkIn, checkOut } = req.query;
 
-    // Frontend → DB mapping
+    // Frontend → DB mapping (UNCHANGED)
     const roomTypeMap = {
       single: "Single",
       double: "Double",
@@ -44,17 +44,35 @@ router.get("/available", async (req, res) => {
       query.capacity = { $gte: Number(guests) };
     }
 
-    const rooms = await RoomListing.find(query);
+    // ✅ UPDATE: projection added (NO LOGIC REMOVED)
+    const rooms = await RoomListing.find(
+      query,
+      {
+        title: 1,
+        description: 1,
+        roomType: 1,
+        images: 1,
+        amenities: 1,
+        pricing: 1,
+        availableRooms: 1,
+        status: 1,
+      }
+    );
 
-    // If no dates → return all rooms
+    // ✅ SAME BEHAVIOR AS BEFORE
     if (!checkIn || !checkOut) {
-      return res.json(rooms);
+      return res.json(
+        rooms.map(room => ({
+          ...room.toObject(),
+          availableCount: room.availableRooms, // added safely
+        }))
+      );
     }
 
     const availableRooms = [];
 
     for (const room of rooms) {
-      // ✅ COUNT BOOKINGS BY ROOM TYPE (NOT _id)
+      // EXISTING LOGIC (UNCHANGED)
       const overlappingBookings = await Booking.countDocuments({
         roomType: room.roomType,
         bookingStatus: { $in: ["Upcoming", "Checked-in"] },
@@ -67,7 +85,7 @@ router.get("/available", async (req, res) => {
       if (remaining > 0) {
         availableRooms.push({
           ...room.toObject(),
-          availableCount: remaining,
+          availableCount: remaining, // ✅ added field
         });
       }
     }

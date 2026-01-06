@@ -3,26 +3,24 @@ const mongoose = require("mongoose");
 /* =========================
    BOOKING MODEL
 ========================= */
-const BookingSchema = new mongoose.Schema(
-  {
-    room: { type: mongoose.Schema.Types.ObjectId, ref: "RoomListing" },
-    roomType: { type: String },
-    title: { type: String },
-    firstName: { type: String },
-    lastName: { type: String },
-    email: { type: String },
-    mobileNo: { type: String },
-    checkIn: { type: Date },
-    checkOut: { type: Date },
-    pricePerNight: { type: Number },
-    totalNights: { type: Number },
-    totalAmount: { type: Number },
-    paymentStatus: { type: String, enum: ["Paid", "Pending", "Failed"], default: "Pending" },
-    bookingStatus: { type: String, enum: ["Upcoming", "Checked-in", "Completed", "Cancelled"], default: "Upcoming" },
-    isActive: { type: Boolean, default: true }
-  },
-  { timestamps: true }
-);
+const bookingSchema = new mongoose.Schema({
+  roomId: { type: mongoose.Schema.Types.ObjectId, ref: "RoomListing", required: true },
+  roomTitle: String,
+  ratePerNight: Number,
+  firstName: String,
+  lastName: String,
+  email: String,
+  phone: String,
+  gst: String,
+  requests: String,
+  paymentIntentId: { type: String, required: true },
+  amount: { type: Number, required: true },
+  subtotal: Number,
+  gstAmount: Number,
+  nights: Number,
+  checkIn: Date,
+  checkOut: Date,
+  createdAt: { type: Date, default: Date.now },
+});
 
-module.exports =
-  mongoose.models.Booking || mongoose.model("Booking", BookingSchema, "bookings");
+module.exports = mongoose.model("Booking", bookingSchema);

@@ -9,7 +9,6 @@ const RoomListingSchema = new mongoose.Schema(
     description: { type: String, trim: true },
     roomType: {
       type: String,
-      
       enum: ["Single", "Double", "Deluxe", "Suite", "Family"],
       required: true,
     },
@@ -36,5 +35,3 @@ const RoomListingSchema = new mongoose.Schema(
 module.exports =
   mongoose.models.RoomListing ||
   mongoose.model("RoomListing", RoomListingSchema, "rooms");
-
-  
