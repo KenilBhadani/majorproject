@@ -91,7 +91,7 @@ function PaymentReports() {
   return (
     <div className="admin-container">
       {/* SIDEBAR */}
-      <div className="sidebar">
+      {/* <div className="sidebar">
         <h1>Admin Panel</h1>
         <Link to="/admin">Dashboard</Link>
         <Link to="/admin/manage-room">Manage Room</Link>
@@ -102,7 +102,7 @@ function PaymentReports() {
         </Link>
         <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
         <Link to="/admin/manage-staff">Manage Staff</Link>
-      </div>
+      </div> */}
 
       {/* MAIN */}
       <div className="main">

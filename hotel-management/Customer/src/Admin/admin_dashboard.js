@@ -2,6 +2,7 @@ import React, { useState, useCallback , useEffect } from "react";
 import { Link } from "react-router-dom";
 import "../Admin/admin_dashboard.css";
 import { ResponsiveContainer, LineChart, Line } from "recharts";
+import { Outlet } from "react-router-dom";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -30,7 +31,7 @@ function sparklineData(days) {
 
 /* ================= COMPONENT ================= */
 
-export default function Dashboard() {
+export function DashboardHome() {
   
   const token = localStorage.getItem("token");
 
@@ -109,21 +110,7 @@ export default function Dashboard() {
   /* ================= UI ================= */
 
   return (
-    <div className="admin-container">
-      {/* SIDEBAR */}
-      <aside className="sidebar">
-        <h1>Admin Panel</h1>
-
-        <Link to="/admin" className="active">Dashboard</Link>
-        <Link to="/admin/manage-room">Manage Room</Link>
-        <Link to="/admin/manage-booking">Manage Bookings</Link>
-        <Link to="/admin/manage-user">Manage User</Link>
-        <Link to="/admin/manage-payment">Payment & Reports</Link>
-        <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
-        <Link to="/admin/manage-staff">Manage Staff</Link>
-      </aside>
-
-      {/* MAIN CONTENT */}
+    <>
       <main className="main">
         <header className="top-bar">
           <div>
@@ -218,6 +205,28 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
+      </main>
+    </>
+  );
+}
+
+export default function AdminLayout() {
+  return (
+    <div className="admin-container">
+      <aside className="sidebar">
+        <h1>Admin Panel</h1>
+
+        <Link to="/admin" className="active">Dashboard</Link>
+        <Link to="/admin/manage-room">Manage Room</Link>
+        <Link to="/admin/manage-booking">Manage Bookings</Link>
+        <Link to="/admin/manage-user">Manage User</Link>
+        <Link to="/admin/manage-payment">Payment & Reports</Link>
+        <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
+        <Link to="/admin/manage-staff">Manage Staff</Link>
+      </aside>
+
+      <main className="main">
+        <Outlet />
       </main>
     </div>
   );

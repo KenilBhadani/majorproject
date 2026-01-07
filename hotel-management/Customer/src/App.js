@@ -27,7 +27,7 @@ import EXPO from "./comp/expo";
 import Services from "./comp/services";
 
 // ===== ADMIN =====
-import Dashboard from "./Admin/admin_dashboard";
+import Dashboard, { DashboardHome } from "./Admin/admin_dashboard";
 import ManageBookings from "./Admin/Manage_Booking";
 import ManageRoom from "./Admin/Manage_Room";
 import ManageUser from "./Admin/Manage_User";
@@ -119,6 +119,7 @@ function App() {
           </AdminRoute>
         }
       >
+        <Route index element={<DashboardHome />} />
         <Route path="manage-booking" element={<ManageBookings />} />
         <Route path="manage-room" element={<ManageRoom />} />
         <Route path="manage-user" element={<ManageUser />} />

@@ -308,17 +308,6 @@ function ManageRoom() {
   return (
     <div className="admin-container">
       {/* SIDEBAR */}
-      <div className="sidebar">
-        <h1>Admin Panel</h1>
-        <Link to="/admin">Dashboard</Link>
-        <Link to="/admin/manage-room" className="active">Manage Room</Link>
-        <Link to="/admin/manage-booking">Manage Bookings</Link>
-        <Link to="/admin/manage-user">Manage User</Link>
-        <Link to="/admin/manage-payment">Payment & Reports</Link>
-        <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
-        <Link to="/admin/manage-staff">Manage Staff</Link>
-      </div>
-
       {/* MAIN */}
       <div className="main">
         <div className="top-bar">
