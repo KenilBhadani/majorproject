@@ -42,7 +42,7 @@ function Header2() {
 
       {/* MY BOOKING */}
       <div className="mr-4 md:mr-10">
-        <Link to="/rooms">
+        <Link to="/bookings">
           <button className="bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-6 rounded-lg shadow">
             My Booking
           </button>

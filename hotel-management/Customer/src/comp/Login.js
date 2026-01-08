@@ -42,6 +42,37 @@ export default function Login() {
       localStorage.setItem("role", data.user.role);
       localStorage.setItem("user", JSON.stringify(data.user));
 
+      // If the user had a pending search or room, restore it (for non-admin users)
+      try {
+        const pending = JSON.parse(sessionStorage.getItem('pendingSearch'));
+        if (pending && data.user.role !== 'admin') {
+          sessionStorage.removeItem('pendingSearch');
+          // add a small flag so the booking page can show a restored banner/toast
+          navigate('/booking', { state: { searchParams: pending, restored: true } });
+          return;
+        }
+
+        const pendingRoom = JSON.parse(sessionStorage.getItem('pendingSelectedRoom'));
+        if (pendingRoom && data.user.role !== 'admin') {
+          sessionStorage.removeItem('pendingSelectedRoom');
+          // build reasonable default search dates (tomorrow -> day after)
+          const inDate = new Date();
+          inDate.setDate(inDate.getDate() + 1);
+          const outDate = new Date();
+          outDate.setDate(outDate.getDate() + 2);
+          const defaultSearch = {
+            checkIn: inDate.toISOString().slice(0,10),
+            checkOut: outDate.toISOString().slice(0,10),
+            roomType: pendingRoom.roomType || pendingRoom.type || '',
+            guests: 1,
+          };
+          navigate('/booking', { state: { selectedRoom: pendingRoom, searchParams: defaultSearch, restored: true } });
+          return;
+        }
+      } catch (e) {
+        // ignore parse errors and continue to normal redirect
+      }
+
       // ✅ ROLE BASED REDIRECT
       if (data.user.role === "admin") {
         navigate("/admin");

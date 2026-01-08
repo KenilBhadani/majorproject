@@ -6,6 +6,7 @@ import Header2 from "./Header2";
 import BookingSteps from "./Bookingstep";
 import Footer from "./footer";
 import { LayoutGrid, AlertCircle, Loader2, Search } from "lucide-react";
+import { toast } from 'react-toastify';
 
 export default function RoomBooking() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export default function RoomBooking() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [restoredInfo, setRestoredInfo] = useState(null);
 
   const API_URL = "http://localhost:5000";
 
@@ -80,6 +82,15 @@ export default function RoomBooking() {
      INITIAL LOAD
   ========================= */
   useEffect(() => {
+    // If we were redirected here with restored state, show a toast and a banner
+    if (location.state?.restored) {
+      const payload = location.state.selectedRoom ? { type: 'room', payload: location.state.selectedRoom } : { type: 'search', payload: location.state.searchParams };
+      setRestoredInfo(payload);
+      toast.success(payload.type === 'room' ? 'Your selected room has been restored' : 'Your previous search has been restored');
+      // clear navigation state so this only shows once
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+
     fetchAvailableRooms();
   }, []); // load once
 
@@ -193,6 +204,23 @@ export default function RoomBooking() {
           {/* =========================
               HEADER
           ========================= */}
+          {restoredInfo && (
+            <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded mb-6 flex justify-between items-center">
+              <div>
+                <strong className="block text-amber-900">{restoredInfo.type === 'room' ? 'Room selection restored' : 'Search restored'}</strong>
+                <p className="text-sm text-amber-700">{restoredInfo.type === 'room' ? 'We restored the room you were trying to reserve.' : 'We restored your previous search criteria.'}</p>
+              </div>
+              <div className="flex gap-2">
+                {restoredInfo.type === 'room' ? (
+                  <button className="bg-amber-700 text-white px-4 py-2 rounded" onClick={() => navigate('/booking/form', { state: { room: restoredInfo.payload, searchParams } })}>Continue</button>
+                ) : (
+                  <button className="bg-amber-700 text-white px-4 py-2 rounded" onClick={() => { fetchAvailableRooms(); setRestoredInfo(null); }}>View results</button>
+                )}
+                <button className="border border-amber-700 text-amber-700 px-3 py-2 rounded" onClick={() => setRestoredInfo(null)}>Dismiss</button>
+              </div>
+            </div>
+          )}
+
           <header className="mb-8">
             <div className="flex items-center gap-2 text-amber-600 mb-2">
               <LayoutGrid size={20} />

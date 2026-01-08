@@ -1,46 +1,134 @@
 const express = require("express");
 const router = express.Router();
-const mongoose = require("mongoose");
-const Stripe = require("stripe");
 const Booking = require("../models/Booking");
-const RoomListing = require("../models/RoomListing"); // ✅ ADDED
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const jwt = require("jsonwebtoken");
 
 /* =========================
-   CREATE PAYMENT INTENT
+   AUTH MIDDLEWARE
 ========================= */
-router.post("/create-payment-intent", async (req, res) => {
+const authMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+
   try {
-    const { amount } = req.body;
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!amount) {
-      return res.status(400).json({ error: "Amount is required" });
-    }
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount), // amount in paise
-      currency: "inr",
-    });
-
-    res.json({ clientSecret: paymentIntent.client_secret });
+    req.user = decoded; // { userId, email, role }
+    next();
   } catch (err) {
-    console.error("Stripe Error:", err);
-    res.status(500).json({ error: "Failed to create payment intent" });
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+};
+
+/* =========================
+   GET LOGGED-IN USER BOOKINGS
+   GET /api/bookings/my
+========================= */
+router.get("/my", authMiddleware, async (req, res) => {
+  try {
+    const bookings = await Booking.find({
+      $or: [
+        { userId: req.user.userId },
+        { email: req.user.email }
+      ]
+    })
+      .populate("roomId") // 🔥 IMPORTANT
+      .sort({ createdAt: -1 });
+
+    const formatted = bookings.map(b => ({
+      _id: b._id,
+      status: b.status,
+      amount: b.amount,
+      checkIn: b.checkIn,
+      checkOut: b.checkOut,
+      nights: b.nights,
+
+      roomTitle: b.roomId?.title,
+      roomImage: b.roomId?.images?.[0], // ✅ SAME AS BookingForm
+    }));
+
+    res.json({ bookings: formatted });
+  } catch (err) {
+    console.error("Fetch bookings error:", err);
+    res.status(500).json({ error: "Failed to fetch bookings" });
   }
 });
 
 /* =========================
-   SAVE BOOKING + REDUCE AVAILABLE ROOMS
+   SEARCH BOOKINGS BY EMAIL (GUEST)
+   GET /api/bookings/search?email=
+========================= */
+router.get("/search", async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const bookings = await Booking.find({ email })
+      .populate("roomId") // 🔥 IMPORTANT
+      .sort({ createdAt: -1 });
+
+    const formatted = bookings.map(b => ({
+      _id: b._id,
+      status: b.status,
+      amount: b.amount,
+      checkIn: b.checkIn,
+      checkOut: b.checkOut,
+      nights: b.nights,
+
+      roomTitle: b.roomId?.title,
+      roomImage: b.roomId?.images?.[0],
+    }));
+
+    res.json({ bookings: formatted });
+  } catch (err) {
+    console.error("Search booking error:", err);
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
+/* =========================
+   CANCEL BOOKING
+========================= */
+router.post("/cancel", authMiddleware, async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      userId: req.user.userId,
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    booking.status = "Cancelled";
+    await booking.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Cancel booking error:", err);
+    res.status(500).json({ error: "Cancel failed" });
+  }
+});
+
+/* =========================
+   SAVE BOOKING
 ========================= */
 router.post("/save", async (req, res) => {
   try {
     const {
       bookingData,
+      paymentStatus,
       paymentIntentId,
       roomId,
-      roomTitle,
       ratePerNight,
       checkIn,
       checkOut,
@@ -50,60 +138,39 @@ router.post("/save", async (req, res) => {
       amount,
     } = req.body;
 
-    if (!bookingData || !paymentIntentId || !roomId || !amount) {
-      return res.status(400).json({ error: "Missing required fields" });
+    let userId = null;
+    const token = req.headers.authorization?.split(" ")[1];
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.userId;
+      } catch {}
     }
 
-    /* =========================
-       1️⃣ CHECK ROOM AVAILABILITY
-    ========================= */
-    const room = await RoomListing.findById(roomId);
-
-    if (!room) {
-      return res.status(404).json({ error: "Room not found" });
-    }
-
-    if (room.availableRooms <= 0) {
-      return res.status(400).json({ error: "Room is sold out" });
-    }
-
-    /* =========================
-       2️⃣ SAVE BOOKING
-    ========================= */
-    const newBooking = new Booking({
-      roomId,
-      roomTitle: roomTitle || room.title,
-      ratePerNight: ratePerNight || room.pricing.standardRate,
+    const booking = new Booking({
+      roomId, // ✅ reference to Room
+      ratePerNight,
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
       email: bookingData.email,
       phone: bookingData.phone,
       gst: bookingData.gst,
-      requests: bookingData.requests,
+
       paymentIntentId,
       amount,
       subtotal,
       gstAmount: gst,
       nights,
-      checkIn,
-      checkOut,
+      checkIn: new Date(checkIn),
+      checkOut: new Date(checkOut),
+      userId,
+      status: paymentStatus === "PAID" ? "Confirmed" : "Pending",
     });
 
-    const savedBooking = await newBooking.save();
-
-    /* =========================
-       3️⃣ REDUCE AVAILABLE ROOMS
-    ========================= */
-    room.availableRooms = room.availableRooms - 1;
-    await room.save();
-
-    res.status(201).json({
-      success: true,
-      booking: savedBooking,
-      remainingRooms: room.availableRooms,
-    });
+    await booking.save();
+    res.json({ success: true, booking });
   } catch (err) {
-    console.error("Booking Save Error:", err);
+    console.error("Save booking error:", err);
     res.status(500).json({ error: "Failed to save booking" });
   }
 });

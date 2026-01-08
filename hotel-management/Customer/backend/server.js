@@ -10,28 +10,34 @@ const app = express();
 /* =========================
    MIDDLEWARE
 ========================= */
+
+// ✅ FIXED CORS (prevents HTML response issue)
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: true, // allows localhost:3000 safely
     credentials: true,
   })
 );
 
+// Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 /* =========================
    MONGODB CONNECTION
 ========================= */
 mongoose
-  .connect(process.env.MONGO_URI) // removed deprecated options
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ MongoDB error:", err));
 
 /* =========================
    ROUTES
 ========================= */
+
 // Auth
 app.use("/api/auth", require("./routes/auth"));
 
@@ -41,15 +47,15 @@ app.use("/api/admin/rooms", require("./routes/adminRooms"));
 
 // Staff & Admin
 app.use("/api/staff", require("./routes/staffDashboard"));
-app.use("/api/admin/staff", require("./routes/adminStaff"));
 app.use("/api/staff/auth", require("./routes/staffAuth"));
+app.use("/api/admin/staff", require("./routes/adminStaff"));
 
 // Admin Users
 app.use("/api/admin/users", require("./routes/adminUsers"));
 
-// Admin Bookings & Payments
-app.use("/api/admin/payments", require("./routes/adminPayments"));
+// Bookings & Payments
 app.use("/api/bookings", require("./routes/booking"));
+app.use("/api/admin/payments", require("./routes/adminPayments"));
 
 /* =========================
    STRIPE – PAYMENT INTENT
@@ -73,12 +79,10 @@ app.post("/api/bookings/create-payment-intent", async (req, res) => {
       },
     });
 
-    res.json({
-      clientSecret: paymentIntent.client_secret,
-    });
+    res.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
-    console.error("Stripe Error:", error.message, error.raw || "");
-    res.status(500).json({ error: error.message });
+    console.error("Stripe Error:", error.message);
+    res.status(500).json({ error: "Stripe payment failed" });
   }
 });
 
@@ -90,7 +94,24 @@ app.get("/", (_req, res) => {
 });
 
 /* =========================
+   API 404 HANDLER (IMPORTANT)
+========================= */
+app.use("/api/*", (req, res) => {
+  res.status(404).json({ error: "API route not found" });
+});
+
+/* =========================
+   GLOBAL ERROR HANDLER
+========================= */
+app.use((err, req, res, next) => {
+  console.error("❌ Server Error:", err);
+  res.status(500).json({ error: "Internal Server Error" });
+});
+
+/* =========================
    START SERVER
 ========================= */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on http://localhost:${PORT}`)
+);

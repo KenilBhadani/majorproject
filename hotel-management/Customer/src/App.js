@@ -11,6 +11,7 @@ import SLogin from "./Staff/Slogin";
 // ===== BOOKING =====
 import BookingForm from "./comp/Bookingcus";
 import RoomBooking from "./comp/roombooking";
+import Mybooking from "./comp/Mybookingpage"; // user's My Bookings page
 
 // ===== LANDING =====
 import Herosection from "./comp/index";
@@ -96,6 +97,7 @@ function App() {
 
       {/* ===== BOOKING ===== */}
       <Route path="/booking" element={<RoomBooking />} />
+      <Route path="/bookings" element={<Mybooking />} />
       <Route
         path="/booking/form"
         element={

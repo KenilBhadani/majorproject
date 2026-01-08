@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import '../Componentcss/index.css';
+import { toast } from 'react-toastify';
 
 function Horosection() {
   const navigate = useNavigate();
@@ -62,6 +63,20 @@ function Horosection() {
 
   const handleSearch = (e) => {
     e.preventDefault();
+
+    // Require login before searching
+    if (!localStorage.getItem('token')) {
+      // persist this search so we can return after login
+      try {
+        sessionStorage.setItem('pendingSearch', JSON.stringify(bookingData));
+      } catch (e) {
+        // ignore storage errors
+      }
+      toast.warning('Please login to check availability');
+      navigate('/login');
+      return;
+    }
+
     const checkInDate = new Date(bookingData.checkIn);
     const checkOutDate = new Date(bookingData.checkOut);
 
@@ -96,6 +111,7 @@ function Horosection() {
               <li className="h-nav-item"><Link to="/services">Services</Link></li>
               <li className="h-nav-item"><Link to="/explore">Explore</Link></li>
               <li className="h-nav-item"><Link to="/contact">Contact</Link></li>
+              <li className="h-nav-item"><Link to="/booking">Bookings</Link></li>
               <li className="h-nav-item h-mobile-only">
                 <div className="h-mobile-login-section">
                   {isLoggedIn ? (

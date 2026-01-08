@@ -6,6 +6,8 @@ export default function FloatingInput({
   value,
   onChange,
   required = false,
+  error = false,
+  errorMessage = ''
 }) {
   return (
     <div className="relative w-full">
@@ -18,12 +20,13 @@ export default function FloatingInput({
         onChange={onChange}
         required={required}
         placeholder=" "
-        className="
+        aria-invalid={error}
+        className={`
           peer w-full h-[58px] px-4 pt-6
-          border-b-2 border-slate-300
+          border-b-2 ${error ? 'border-red-500' : 'border-slate-300'}
           bg-slate-50 rounded-t-lg
           focus:outline-none focus:border-black
-        "
+        `}
       />
 
       {/* FLOATING LABEL */}
@@ -42,6 +45,10 @@ export default function FloatingInput({
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
+
+      {error && (
+        <p className="text-red-500 text-sm mt-1">{errorMessage || 'This field is required'}</p>
+      )}
     </div>
   );
 }

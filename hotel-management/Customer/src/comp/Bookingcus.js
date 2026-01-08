@@ -1,61 +1,54 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { Users, ShieldCheck, Info, ArrowRight } from "lucide-react";
+import { Users, ShieldCheck, ArrowRight } from "lucide-react";
 import Header2 from "./Header2";
 import Footer from "./footer";
-import BookingSteps from "./Bookingstep";
-import FloatingInput from "./FloatingInput"; // Custom input component
+import FloatingInput from "./FloatingInput";
+
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function BookingForm() {
-  const location = useLocation();
   const navigate = useNavigate();
-
-  // Backend API URL from .env
-  const API_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
-
+  const location = useLocation();
   const stripe = useStripe();
   const elements = useElements();
 
-  // Selected room & search params (we only read these, don't need setters)
-  const [room] = useState(() => {
-    const saved = sessionStorage.getItem("selectedRoom");
-    return location.state?.room || (saved ? JSON.parse(saved) : null);
-  });
+  const API_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
 
-  const [searchParams] = useState(() => {
-    const saved = sessionStorage.getItem("searchParams");
-    return location.state?.searchParams || (saved ? JSON.parse(saved) : null);
-  });
+  /* =========================
+     SESSION STATE
+  ========================= */
+  const [room, setRoom] = useState(null);
+  const [searchParams, setSearchParams] = useState(null);
+  const [ready, setReady] = useState(false);
 
+  /* =========================
+     RESTORE SESSION
+  ========================= */
   useEffect(() => {
-    if (!room || !searchParams) {
-      navigate("/rooms"); // Redirect if no room or search
+    const savedRoom = sessionStorage.getItem("selectedRoom");
+    const savedSearch = sessionStorage.getItem("searchParams");
+
+    if (location.state?.room && location.state?.searchParams) {
+      sessionStorage.setItem("selectedRoom", JSON.stringify(location.state.room));
+      sessionStorage.setItem("searchParams", JSON.stringify(location.state.searchParams));
+      setRoom(location.state.room);
+      setSearchParams(location.state.searchParams);
+      setReady(true);
+    } else if (savedRoom && savedSearch) {
+      setRoom(JSON.parse(savedRoom));
+      setSearchParams(JSON.parse(savedSearch));
+      setReady(true);
     } else {
-      sessionStorage.setItem("selectedRoom", JSON.stringify(room));
-      sessionStorage.setItem("searchParams", JSON.stringify(searchParams));
+      navigate("/rooms", { replace: true });
     }
-  }, [room, searchParams, navigate]);
+  }, [location, navigate]);
 
-  // Calculate check-in, check-out, nights
-  const { checkInDate, checkOutDate, nights } = useMemo(() => {
-    const inD = new Date(searchParams.checkIn);
-    const outD = new Date(searchParams.checkOut);
-    const diff = Math.max(1, Math.ceil((outD - inD) / 86400000));
-    return { checkInDate: inD, checkOutDate: outD, nights: diff };
-  }, [searchParams]);
-
-  // Pricing calculation
-  const rate = Number(room?.pricing?.standardRate || 0);
-  const subtotal = rate * nights;
-  const gst = Math.round(subtotal * 0.18);
-  const total = subtotal + gst;
-
-  const imageUrl = room?.images?.[0]
-    ? `${API_URL}/${room.images[0].replace(/^\//, "")}`
-    : "https://via.placeholder.com/400x250";
-
-  // Form state
+  /* =========================
+     FORM STATE
+  ========================= */
   const [form, setForm] = useState({
     title: "",
     firstName: "",
@@ -63,296 +56,328 @@ export default function BookingForm() {
     email: "",
     phone: "",
     gst: "",
-    requests: "",
     agree: false,
   });
 
+  const [paymentMethod, setPaymentMethod] = useState("CARD");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Form validation
   const valid =
     form.title &&
     form.firstName &&
     form.lastName &&
-    form.email &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) &&
     form.phone &&
     form.agree;
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setForm(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   }
 
+  /* =========================
+     FETCH LOGGED-IN USER INFO
+  ========================= */
+  useEffect(() => {
+    async function fetchUser() {
+      const token = localStorage.getItem("token");
+      if (!token) return; // guest
+
+      try {
+        const res = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        setForm(prev => ({
+          ...prev,
+          firstName: data.firstName || prev.firstName,
+          lastName: data.lastName || prev.lastName,
+          email: data.email || prev.email,
+          phone: data.phone || prev.phone,
+        }));
+      } catch (err) {
+        console.error("Failed to fetch user info:", err);
+      }
+    }
+
+    fetchUser();
+  }, [API_URL]);
+
+  /* =========================
+     DATE CALCULATION
+  ========================= */
+  const { nights, checkInDate, checkOutDate } = useMemo(() => {
+    if (!searchParams) return { nights: 0, checkInDate: null, checkOutDate: null };
+    const inD = new Date(searchParams.checkIn);
+    const outD = new Date(searchParams.checkOut);
+    const diff = Math.max(1, Math.ceil((outD - inD) / 86400000));
+    return { nights: diff, checkInDate: inD, checkOutDate: outD };
+  }, [searchParams]);
+
+  /* =========================
+     PRICING
+  ========================= */
+  const rate = Number(room?.pricing?.standardRate || 0);
+  const subtotal = rate * nights;
+  const gst = Math.round(subtotal * 0.18);
+  const total = subtotal + gst;
+
+  /* =========================
+     HANDLE SUBMIT
+  ========================= */
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!valid || !stripe || !elements) return;
+    if (!valid) return;
 
     setLoading(true);
     setError("");
 
-    const card = elements.getElement(CardElement);
-
     try {
-      // 1️⃣ Create PaymentIntent on server
-      const res = await fetch(`${API_URL}/api/bookings/create-payment-intent`, {
+      /* ===== CASH ===== */
+      if (paymentMethod === "CASH") {
+        const token = localStorage.getItem("token");
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const saveRes = await fetch(`${API_URL}/api/bookings/save`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            bookingData: form,
+            paymentMethod: "CASH",
+            paymentStatus: "PENDING",
+            roomId: room._id,
+            roomTitle: room.title,
+            ratePerNight: rate,
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            nights,
+            subtotal,
+            gst,
+            amount: total,
+          }),
+        });
+
+        if (!saveRes.ok) {
+          const errorData = await saveRes.json();
+          throw new Error(errorData.error || "Failed to save booking");
+        }
+
+        if (!localStorage.getItem("token")) localStorage.setItem("guestEmail", form.email);
+
+        sessionStorage.clear();
+
+        toast.success("Booking successful! See you at the hotel.");
+        setTimeout(() => navigate("/booking-success"), 1500);
+        return;
+      }
+
+      /* ===== CARD ===== */
+      const intentRes = await fetch(`${API_URL}/api/bookings/create-payment-intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: total, bookingData: form }),
       });
 
-      const data = await res.json();
+      const { clientSecret } = await intentRes.json();
 
-      if (!res.ok || !data.clientSecret) {
-        throw new Error(data.error || "Failed to create payment intent");
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: elements.getElement(CardElement),
+          billing_details: { name: `${form.firstName} ${form.lastName}`, email: form.email },
+        },
+      });
+
+      if (result.error) throw result.error;
+
+      const token = localStorage.getItem("token");
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const saveRes = await fetch(`${API_URL}/api/bookings/save`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          bookingData: form,
+          paymentMethod: "CARD",
+          paymentStatus: "PAID",
+          paymentIntentId: result.paymentIntent.id,
+          roomId: room._id,
+          roomTitle: room.title,
+          ratePerNight: rate,
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          nights,
+          subtotal,
+          gst,
+          amount: total,
+        }),
+      });
+
+      if (!saveRes.ok) {
+        const errorData = await saveRes.json();
+        throw new Error(errorData.error || "Failed to save booking");
       }
 
-      // 2️⃣ Confirm payment on client
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-        data.clientSecret,
-        {
-          payment_method: {
-            card,
-            billing_details: {
-              name: `${form.firstName} ${form.lastName}`,
-              email: form.email,
-            },
-          },
-        }
-      );
+      if (!localStorage.getItem("token")) localStorage.setItem("guestEmail", form.email);
 
-      if (stripeError) {
-        setError(stripeError.message);
-        setLoading(false);
-        return;
-      }
+      sessionStorage.clear();
 
-      if (paymentIntent?.status === "succeeded") {
-        // 3️⃣ Save booking to backend with all details
-        const saveRes = await fetch(`${API_URL}/api/bookings/save`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            bookingData: form,
-            paymentIntentId: paymentIntent.id,
-            roomId: room._id,
-            roomTitle: room.title,
-            ratePerNight: rate,
-            checkIn: checkInDate.toISOString(),
-            checkOut: checkOutDate.toISOString(),
-            nights: nights,
-            subtotal: subtotal,
-            gst: gst,
-            amount: total,
-          }),
-        });
-
-        const saveData = await saveRes.json();
-
-        if (!saveRes.ok) {
-          throw new Error(saveData.error || "Failed to save booking");
-        }
-
-        alert("Booking Successful!");
-        navigate("/booking-success");
-      } else {
-        setError("Payment was not successful. Please try again.");
-        setLoading(false);
-      }
+      toast.success("Payment successful! Your booking is confirmed.");
+      setTimeout(() => navigate("/booking-success"), 1500);
     } catch (err) {
-      console.error("Booking Error:", err);
-      setError(err.message || "Payment failed. Try again.");
+      setError(err.message || "Payment failed");
+    } finally {
       setLoading(false);
     }
   }
 
-  if (!room) return null; // Prevent rendering if no room selected
+  /* =========================
+     SAFE RENDER
+  ========================= */
+  if (!ready) {
+    return (
+      <>
+        <Header2 />
+        <div className="min-h-screen flex items-center justify-center text-slate-500">
+          Restoring your booking…
+        </div>
+      </>
+    );
+  }
+
+  const imageUrl =
+    room?.images?.length > 0
+      ? `${API_URL}/${room.images[0].replace(/^\/+/, "")}`
+      : "/no-room.jpg";
 
   return (
     <>
       <Header2 />
-      <BookingSteps activeStep={2} />
+      {/* ✅ Toast container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+      />
 
-      <div className="bg-[#fcfcfd] min-h-screen font-sans">
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <header className="mb-10">
-            <h1 className="text-4xl font-black text-slate-900">Complete Your Reservation</h1>
-            <p className="text-slate-500 mt-2">
-              Please provide your details to secure this booking.
-            </p>
-          </header>
+      <div className="min-h-screen bg-slate-50 px-6 py-12">
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-3xl font-black mb-6">Complete Your Reservation</h1>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            {/* LEFT FORM */}
-            <div className="lg:col-span-8">
-              <section className="bg-white p-8 rounded-[2rem] shadow-sm border">
-                <div className="flex items-center gap-3 mb-8">
-                  <div className="p-2 bg-amber-50 rounded-lg">
-                    <Users className="text-amber-600" />
-                  </div>
-                  <h2 className="text-xl font-bold">Guest Details</h2>
+          <form onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-8">
+            {/* LEFT */}
+            <div className="lg:col-span-8 bg-white p-8 rounded-3xl border">
+              <h2 className="flex gap-2 font-bold mb-6">
+                <Users /> Guest Details
+              </h2>
+
+              <div className="grid md:grid-cols-4 gap-4">
+                <select
+                  name="title"
+                  value={form.title}
+                  onChange={handleChange}
+                  className="h-[56px] px-4 border rounded-lg bg-slate-50"
+                >
+                  <option value="">Title</option>
+                  <option>Mr.</option>
+                  <option>Mrs.</option>
+                  <option>Ms.</option>
+                </select>
+
+                <FloatingInput name="firstName" label="First Name" value={form.firstName} onChange={handleChange} />
+                <FloatingInput name="lastName" label="Last Name" value={form.lastName} onChange={handleChange} />
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4 mt-6">
+                <FloatingInput name="email" label="Email" value={form.email} onChange={handleChange} />
+                <FloatingInput name="phone" label="Mobile" value={form.phone} onChange={handleChange} />
+                <FloatingInput name="gst" label="GST (optional)" value={form.gst} onChange={handleChange} />
+              </div>
+
+              <div className="mt-6 space-y-2">
+                <label className="flex gap-2">
+                  <input type="radio" checked={paymentMethod === "CARD"} onChange={() => setPaymentMethod("CARD")} />
+                  Card
+                </label>
+                <label className="flex gap-2">
+                  <input type="radio" checked={paymentMethod === "CASH"} onChange={() => setPaymentMethod("CASH")} />
+                  Cash at Hotel
+                </label>
+              </div>
+
+              {paymentMethod === "CARD" && (
+                <div className="mt-4 border rounded-xl p-4">
+                  <CardElement />
                 </div>
+              )}
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  <div className="grid md:grid-cols-4 gap-6">
-                    <select
-                      name="title"
-                      value={form.title}
-                      onChange={handleChange}
-                      required
-                      className="h-[58px] pt-4 px-4 border-b-2 border-slate-200 bg-slate-50 rounded-t-lg"
-                    >
-                      <option value="">Title</option>
-                      <option>Mr.</option>
-                      <option>Mrs.</option>
-                      <option>Ms.</option>
-                    </select>
+              <label className="flex gap-2 mt-6">
+                <input type="checkbox" name="agree" checked={form.agree} onChange={handleChange} />
+                I agree to terms
+              </label>
 
-                    <FloatingInput
-                      id="firstName"
-                      name="firstName"
-                      label="First Name"
-                      required
-                      value={form.firstName}
-                      onChange={handleChange}
-                    />
-                    <FloatingInput
-                      id="lastName"
-                      name="lastName"
-                      label="Last Name"
-                      required
-                      value={form.lastName}
-                      onChange={handleChange}
-                    />
-                  </div>
+              {error && <p className="text-red-500 mt-3">{error}</p>}
 
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <FloatingInput
-                      id="email"
-                      name="email"
-                      type="email"
-                      label="Email"
-                      required
-                      value={form.email}
-                      onChange={handleChange}
-                    />
-                    <FloatingInput
-                      id="phone"
-                      name="phone"
-                      label="Mobile"
-                      required
-                      value={form.phone}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <FloatingInput
-                    id="gst"
-                    name="gst"
-                    label="GST (Optional)"
-                    value={form.gst}
-                    onChange={handleChange}
-                  />
-
-                  <textarea
-                    name="requests"
-                    placeholder="Special requests"
-                    rows="3"
-                    className="w-full border rounded-2xl p-4"
-                    value={form.requests}
-                    onChange={handleChange}
-                  />
-
-                  {/* Stripe Card Element */}
-                  <div className="mt-6">
-                    <label className="block mb-2 font-medium">Card Details</label>
-                    <div className="border rounded-xl p-3">
-                      <CardElement
-                        options={{
-                          style: {
-                            base: {
-                              fontSize: "16px",
-                              color: "#111",
-                              "::placeholder": { color: "#888" },
-                            },
-                            invalid: { color: "#e53e3e" },
-                          },
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {error && <p className="text-red-500 mt-2">{error}</p>}
-
-                  <label className="flex gap-3 mt-4">
-                    <input
-                      type="checkbox"
-                      name="agree"
-                      checked={form.agree}
-                      onChange={handleChange}
-                    />
-                    <span>I agree to the terms and policies</span>
-                  </label>
-
-                  <button
-                    type="submit"
-                    disabled={!valid || loading || !stripe || !elements}
-                    className={`w-full py-5 rounded-2xl font-black text-lg mt-4
-                      ${valid ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-400"}`}
-                  >
-                    {loading ? "Processing..." : `Pay ₹ ${total.toLocaleString("en-IN")}`}{" "}
-                    <ArrowRight className="inline ml-2" />
-                  </button>
-                </form>
-              </section>
+              <button
+                disabled={!valid || loading}
+                className="w-full mt-6 bg-slate-900 text-white py-4 rounded-xl font-bold"
+              >
+                {loading ? "Processing..." : paymentMethod === "CASH" ? "Confirm Booking" : `Pay ₹${total}`}
+                <ArrowRight className="inline ml-2" />
+              </button>
             </div>
 
-            {/* RIGHT SUMMARY */}
+            {/* RIGHT */}
             <aside className="lg:col-span-4">
-              <div className="bg-white rounded-3xl shadow-xl overflow-hidden sticky top-24">
-                <img src={imageUrl} alt={room.title} className="h-44 w-full object-cover" />
-                <div className="p-6 space-y-4">
-                  <h3 className="text-xl font-bold">{room.title}</h3>
-                  <div className="flex justify-between text-sm">
-                    <span>Check-In</span>
-                    <span>{checkInDate.toDateString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Check-Out</span>
-                    <span>{checkOutDate.toDateString()}</span>
-                  </div>
+              <div className="sticky top-24 bg-white rounded-3xl shadow overflow-hidden">
+                <img
+                  src={imageUrl}
+                  alt={room.title}
+                  className="w-full h-48 object-cover"
+                  onError={e => (e.target.src = "/no-room.jpg")}
+                />
 
-                  <div className="border-t pt-4 space-y-2">
+                <div className="p-6">
+                  <h3 className="text-xl font-black">{room.title}</h3>
+                  <p className="text-sm text-slate-500">
+                    {checkInDate?.toDateString()} → {checkOutDate?.toDateString()}
+                  </p>
+
+                  <div className="mt-4 space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span>Subtotal</span>
-                      <span>₹ {subtotal}</span>
+                      <span>₹{rate} × {nights}</span>
+                      <span>₹{subtotal}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>GST (18%)</span>
-                      <span>₹ {gst}</span>
+                      <span>₹{gst}</span>
                     </div>
-                    <div className="flex justify-between font-black text-lg">
+                    <div className="border-t pt-3 flex justify-between font-black text-lg">
                       <span>Total</span>
-                      <span className="text-amber-600">₹ {total}</span>
+                      <span>₹{total}</span>
                     </div>
                   </div>
 
-                  <div className="bg-emerald-50 p-3 rounded-xl flex gap-2 text-xs">
-                    <Info /> Free cancellation before 48 hrs
+                  <div className="mt-4 flex items-center gap-2 text-emerald-600 text-xs">
+                    <ShieldCheck size={14} /> Secure payment
                   </div>
                 </div>
               </div>
-              <div className="text-center mt-6 text-xs text-slate-400 flex justify-center gap-2">
-                <ShieldCheck size={14} /> Secure Payment
-              </div>
             </aside>
-          </div>
+          </form>
         </div>
-        <Footer />
       </div>
+
+      <Footer />
     </>
   );
 }
