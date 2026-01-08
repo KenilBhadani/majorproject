@@ -54,6 +54,12 @@ app.use("/api/admin/staff", require("./routes/adminStaff"));
 app.use("/api/admin/users", require("./routes/adminUsers"));
 
 // Bookings & Payments
+// Admin Dashboard & Bookings
+app.use("/api/admin", require("./routes/adminDashboard"));
+app.use("/api/admin/bookings", require("./routes/adminBookings"));
+
+// Admin Payments & Public Bookings
+app.use("/api/admin/payments", require("./routes/adminPayments"));
 app.use("/api/bookings", require("./routes/booking"));
 app.use("/api/admin/payments", require("./routes/adminPayments"));
 

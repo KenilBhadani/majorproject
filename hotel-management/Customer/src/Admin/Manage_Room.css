@@ -102,7 +102,20 @@ html, body {
 .card-title {
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 20px;
+  margin: 0;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.primary-btn.btn-medium {
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-size: 14px;
 }
 
 /* ===== FORM ===== */
@@ -161,6 +174,46 @@ html, body {
   gap: 14px;
   margin-top: 10px;
 }
+
+/* ===== SEARCH ===== */
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  min-width: 280px;
+}
+
+.search-icon {
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 6px 8px;
+  font-size: 14px;
+  width: 260px;
+}
+
+.clear-btn {
+  margin-left: 8px;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.clear-btn:hover { color: #111827; }
+
 
 /* ===== BUTTONS ===== */
 .primary-btn {
@@ -291,4 +344,24 @@ html, body {
     flex: 1 1 50%;
     text-align: center;
   }
+}
+
+/* ===== MODAL FORM ===== */
+.modal-root { position: fixed; inset: 0; z-index: 9999; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(2,6,23,0.45); backdrop-filter: blur(3px); }
+.modal-center { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 10000; }
+.modal-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 920px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 30px 80px rgba(2,6,23,0.16);
+  border: 1px solid #eaeaea;
+}
+
+@media (max-width: 720px) {
+  .modal-box { padding: 16px; border-radius: 12px; }
 }

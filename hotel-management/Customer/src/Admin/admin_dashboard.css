@@ -254,3 +254,24 @@
     padding: 22px;
   }
 }
+
+/* ================= CHARTS ================= */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.chart-card {
+  background: #fff;
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 900px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+}

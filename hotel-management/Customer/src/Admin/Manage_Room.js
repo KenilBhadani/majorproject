@@ -40,12 +40,26 @@ function ManageRoom() {
   const [imageFiles, setImageFiles] = useState([]); // new files selected by admin
   const [previewUrls, setPreviewUrls] = useState([]); // object URLs for previews
   const fileInputRef = useRef(null); // ref to clear file input programmatically
+  const titleInputRef = useRef(null); // focus when opening add form
+  const mainRef = useRef(null);
+  const roomsListRef = useRef(null);
 
   useEffect(() => {
     if (didFetch.current) return;
     didFetch.current = true;
     fetchRooms();
   }, []);
+
+  // focus the title input when add form opens and scroll to top
+  useEffect(() => {
+    if (showForm) {
+      // wait for DOM update
+      setTimeout(() => {
+        titleInputRef.current?.focus();
+        mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 50);
+    }
+  }, [showForm]);
 
   async function fetchRooms() {
     try {
@@ -80,11 +94,37 @@ function ManageRoom() {
 
   function handleSearch() {
     setQuery(search);
+    // scroll to results for better UX
+    setTimeout(() => roomsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
   function clearSearch() {
     setSearch("");
     setQuery("");
+    setTimeout(() => mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+  }
+
+  // debounced live search: update `query` 300ms after typing
+  React.useEffect(() => {
+    const id = setTimeout(() => setQuery(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  // highlight helper for showing matching substring
+  function highlight(text = "", q = "") {
+    if (!q) return text;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return text;
+    const before = text.slice(0, idx);
+    const match = text.slice(idx, idx + q.length);
+    const after = text.slice(idx + q.length);
+    return (
+      <>
+        {before}
+        <span style={{ background: '#fde68a', padding: '0 4px', borderRadius: 4 }}>{match}</span>
+        {after}
+      </>
+    );
   }
 
   function openAddForm() {
@@ -300,16 +340,25 @@ function ManageRoom() {
   }
 
   const filteredRooms = rooms.filter(room => {
-    if (!query) return true;
+    const q = (query || "").trim().toLowerCase();
+    if (!q) return true;
     const title = room.title || "";
-    return title.toLowerCase().includes(query.toLowerCase());
+    const bed = room.bedType || "";
+    const desc = room.description || "";
+    const type = room.roomType || "";
+    return (
+      title.toLowerCase().includes(q) ||
+      bed.toLowerCase().includes(q) ||
+      desc.toLowerCase().includes(q) ||
+      type.toLowerCase().includes(q)
+    );
   });
 
   return (
     <div className="admin-container">
       {/* SIDEBAR */}
       {/* MAIN */}
-      <div className="main">
+      <div className="main" ref={mainRef}>
         <div className="top-bar">
           <h2>Manage Rooms</h2>
           <button className="logout-btn">Logout</button>
@@ -329,230 +378,258 @@ function ManageRoom() {
           </div>
         )}
 
-        {showForm ? (
-          <div className="card">
-            <h3 className="card-title">{editingId ? "Update Room" : "Add New Room"}</h3>
-
-            <form className="room-form modern-form" onSubmit={handleSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Room Title</label>
-                  <input name="title" value={form.title} onChange={handleChange} required />
-                </div>
-
-                <div className="form-group">
-                  <label>Size (sq.m)</label>
-                  <input type="number" name="size" value={form.size} onChange={handleChange} required />
-                </div>
-
-                <div className="form-group">
-                  <label>Capacity</label>
-                  <input type="number" name="capacity" value={form.capacity} onChange={handleChange} required />
-                </div>
-                <div className="form-group">
-  <label>Room Type</label>
-  <select
-    name="roomType"
-    value={form.roomType}
-    onChange={handleChange}
-    required
-  >
-    <option value="">Select Room Type</option>
-    <option value="Single">Single</option>
-    <option value="Double">Double</option>
-    <option value="Deluxe">Deluxe</option>
-    <option value="Suite">Suite</option>
-    <option value="Family">Family</option>
-  </select>
-</div>
-
-                <div className="form-group">
-                  <label>Bed Type</label>
-                  <input name="bedType" value={form.bedType} onChange={handleChange} required />
-                </div>
-
-                <div className="form-group">
-                  <label>Available Rooms</label>
-                  <input type="number" name="availableRooms" value={form.availableRooms} onChange={handleChange} required />
-                </div>
-              </div>
-
-              <div className="form-group full">
-                <label>Amenities (comma separated)</label>
-                <input name="amenities" value={form.amenities} onChange={handleChange} />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Rate Plan Name</label>
-                  <input name="planName" value={form.planName} onChange={handleChange} />
-                </div>
-
-                <div className="form-group">
-                  <label>Inclusions (comma separated)</label>
-                  <input name="inclusions" value={form.inclusions} onChange={handleChange} />
-                </div>
-
-                <div className="form-group">
-                  <label>Deposit Policy</label>
-                  <input name="depositPolicy" value={form.depositPolicy} onChange={handleChange} />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Standard Rate</label>
-                  <input type="number" name="standardRate" value={form.standardRate} onChange={handleChange} />
-                </div>
-
-                <div className="form-group">
-                  <label>Currency</label>
-                  <input name="currency" value={form.currency} onChange={handleChange} />
-                </div>
-              </div>
-
-              <div className="form-group full">
-                <label>Room Images</label>
-                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} />
-                <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>
-                  {`You can add ${Math.max(0, MAX_IMAGES - ((editingId ? (form.images || []).length : 0) + imageFiles.length))} more image${Math.max(0, MAX_IMAGES - ((editingId ? (form.images || []).length : 0) + imageFiles.length)) === 1 ? '' : 's'} (max ${MAX_IMAGES}).`}
-                </div>
-
-                {/* Existing images (already uploaded) */}
-                {editingId && form.images && form.images.length > 0 && (
-                  <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
-                    {form.images.map((img, idx) => (
-                      <div key={idx} style={{ position: "relative" }}>
-                        <img src={`${API}/${img}`} alt={`Room ${idx}`} style={{ width: "120px", borderRadius: "8px" }} />
-                        <button type="button" onClick={() => removeExistingImage(img)} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "white", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Previews of newly selected files */}
-                {previewUrls && previewUrls.length > 0 && (
-                  <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
-                    {previewUrls.map((url, i) => (
-                      <div key={i} style={{ position: "relative" }}>
-                        <img src={url} alt={`Preview ${i}`} style={{ width: "120px", borderRadius: "8px" }} />
-                        <button type="button" onClick={() => removeSelectedFile(i)} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "white", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group full">
-                <label>Description</label>
-                <textarea name="description" value={form.description} onChange={handleChange} />
-              </div>
-
-              {error && (
-                <div style={{ 
-                  background: "#fee2e2", 
-                  color: "#991b1b", 
-                  padding: "12px", 
-                  borderRadius: "8px", 
-                  marginBottom: "16px",
-                  fontSize: "14px"
-                }}>
-                  {error}
-                </div>
-              )}
-              <div className="form-actions">
-                <button 
-                  type="submit" 
-                  className="primary-btn"
-                  disabled={submitting}
-                  style={{ opacity: submitting ? 0.6 : 1, cursor: submitting ? "not-allowed" : "pointer" }}
-                >
-                  {submitting ? "Processing..." : editingId ? "Update Room" : "Add Room"}
-                </button>
-                <button 
-                  type="button" 
-                  className="secondary-btn" 
-                  onClick={() => { setShowForm(false); resetForm(); setError(""); }}
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+        {/* Rooms list (always visible) */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">Rooms List</h3>
+            <button className="primary-btn btn-medium" onClick={openAddForm}>+ Add New Room</button>
           </div>
-        ) : (
-          <>
-            <button className="primary-btn" style={{ marginBottom: "16px" }} onClick={openAddForm}>
-              + Add New Room
-            </button>
 
-            <div className="card">
-              <h3 className="card-title">Rooms List</h3>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center' }}>
+            <div className="search-wrapper">
+              <span className="search-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21l-4.35-4.35" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </span>
 
-              <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
-                <input placeholder="Search room by title..." value={search} onChange={e => setSearch(e.target.value)} />
-                <button onClick={handleSearch}>Search</button>
-                <button onClick={clearSearch}>Clear</button>
-              </div>
+              <input
+                className="search-input"
+                placeholder="Search rooms, bed type or description..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+              />
 
-              {loading ? (
-                <div style={{ padding: "40px", textAlign: "center" }}>
-                  <p>Loading rooms...</p>
-                </div>
-              ) : filteredRooms.length === 0 ? (
-                <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
-                  <p>{query ? `No rooms found matching "${query}"` : "No rooms found. Click 'Add New Room' to create one."}</p>
-                </div>
-              ) : (
-                <table className="room-table">
-                  <thead>
-                    <tr>
-                      <th>Image</th>
-                      <th>Title</th>
-                      <th>Size</th>
-                      <th>Capacity</th>
-                      <th>Price</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRooms.map(room => (
-                      <tr key={room._id}>
-                        <td>
-                          {room.images?.[0] ? (
-                            <img src={`${API}/${room.images[0]}`} alt={room.title} style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "6px" }} />
-                          ) : (
-                            <div style={{ width: "60px", height: "60px", backgroundColor: "#e5e7eb", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: "12px" }}>
-                              No Image
-                            </div>
-                          )}
-                        </td>
-                        <td>{room.title || "Untitled Room"}</td>
-                        <td>{room.size ? `${room.size} m²` : "N/A"}</td>
-                        <td>{room.capacity ? `${room.capacity} Guests` : "N/A"}</td>
-                        <td>₹{room.pricing?.standardRate || room.standardRate || "0"}</td>
-                        <td>
-                          <button 
-                            onClick={() => startEdit(room)}
-                            style={{ marginRight: "8px", padding: "6px 12px", backgroundColor: "#6366f1", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            onClick={() => deleteRoom(room._id)}
-                            style={{ padding: "6px 12px", backgroundColor: "#ef4444", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
-                          >
-                            Delete
-                          </button>
-                        </td>
+              {search && (
+                <button
+                  className="clear-btn"
+                  onClick={() => { setSearch(''); setQuery(''); titleInputRef.current?.focus(); }}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            <button onClick={handleSearch} className="secondary-btn">Search</button>
+            <button onClick={clearSearch} className="secondary-btn">Clear</button>
+
+            <div style={{ marginLeft: 8, color: '#6b7280' }}>{filteredRooms.length} result{filteredRooms.length !== 1 ? 's' : ''}</div>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: "40px", textAlign: "center" }}>
+              <p>Loading rooms...</p>
+            </div>
+          ) : filteredRooms.length === 0 ? (
+            <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+              <p>{query ? `No rooms found matching "${query}"` : "No rooms found. Click 'Add New Room' to create one."}</p>
+            </div>
+          ) : (
+            <table className="room-table">
+              <thead>
+                <tr>
+                  <th>Image</th>
+                  <th>Title</th>
+                  <th>Size</th>
+                  <th>Capacity</th>
+                  <th>Price</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRooms.map(room => (
+                  <tr key={room._id}>
+                    <td>
+                      {room.images?.[0] ? (
+                        <img src={`${API}/${room.images[0]}`} alt={room.title} style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "6px" }} />
+                      ) : (
+                        <div style={{ width: "60px", height: "60px", backgroundColor: "#e5e7eb", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: "12px" }}>
+                          No Image
+                        </div>
+                      )}
+                    </td>
+                    <td>{highlight(room.title || "Untitled Room", query)}</td>
+                    <td>{room.size ? `${room.size} m²` : "N/A"}</td>
+                    <td>{room.capacity ? `${room.capacity} Guests` : "N/A"}</td>
+                    <td>₹{room.pricing?.standardRate || room.standardRate || "0"}</td>
+                    <td>
+                      <button 
+                        onClick={() => startEdit(room)}
+                        style={{ marginRight: "8px", padding: "6px 12px", backgroundColor: "#6366f1", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => deleteRoom(room._id)}
+                        style={{ padding: "6px 12px", backgroundColor: "#ef4444", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
+                      >
+                        Delete
+                      </button>
+                    </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               )}
             </div>
-          </>
-        )}
+
+            {/* Modal-style form (opens on top of list, like Manage Staff) */}
+            {showForm && (
+              <div className="modal-root">
+                <div className="modal-backdrop" onClick={() => { setShowForm(false); resetForm(); setError(""); }}></div>
+                <div className="modal-center">
+                  <div className="modal-box">
+                    <h3 className="card-title">{editingId ? "Update Room" : "Add New Room"}</h3>
+
+                    <form className="room-form modern-form" onSubmit={handleSubmit}>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Room Title</label>
+                          <input ref={titleInputRef} name="title" value={form.title} onChange={handleChange} required />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Size (sq.m)</label>
+                          <input type="number" name="size" value={form.size} onChange={handleChange} required />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Capacity</label>
+                          <input type="number" name="capacity" value={form.capacity} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                      <label>Room Type</label>
+                      <select
+                      name="roomType"
+                       value={form.roomType}
+                        onChange={handleChange}
+                        required
+                      >
+                        <option value="">Select Room Type</option>
+                        <option value="Single">Single</option>
+                        <option value="Double">Double</option>
+                        <option value="Deluxe">Deluxe</option>
+                        <option value="Suite">Suite</option>
+                        <option value="Family">Family</option>
+                        </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label>Bed Type</label>
+                          <input name="bedType" value={form.bedType} onChange={handleChange} required />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Available Rooms</label>
+                          <input type="number" name="availableRooms" value={form.availableRooms} onChange={handleChange} required />
+                        </div>
+                      </div>
+
+                      <div className="form-group full">
+                        <label>Amenities (comma separated)</label>
+                        <input name="amenities" value={form.amenities} onChange={handleChange} />
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Rate Plan Name</label>
+                          <input name="planName" value={form.planName} onChange={handleChange} />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Inclusions (comma separated)</label>
+                          <input name="inclusions" value={form.inclusions} onChange={handleChange} />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Deposit Policy</label>
+                          <input name="depositPolicy" value={form.depositPolicy} onChange={handleChange} />
+                        </div>
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Standard Rate</label>
+                          <input type="number" name="standardRate" value={form.standardRate} onChange={handleChange} />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Currency</label>
+                          <input name="currency" value={form.currency} onChange={handleChange} />
+                        </div>
+                      </div>
+
+                      <div className="form-group full">
+                        <label>Room Images</label>
+                        <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} />
+                        <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>
+                          {`You can add ${Math.max(0, MAX_IMAGES - ((editingId ? (form.images || []).length : 0) + imageFiles.length))} more image${Math.max(0, MAX_IMAGES - ((editingId ? (form.images || []).length : 0) + imageFiles.length)) === 1 ? '' : 's'} (max ${MAX_IMAGES}).`}
+                        </div>
+
+                        {editingId && form.images && form.images.length > 0 && (
+                          <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
+                            {form.images.map((img, idx) => (
+                              <div key={idx} style={{ position: "relative" }}>
+                                <img src={`${API}/${img}`} alt={`Room ${idx}`} style={{ width: "120px", borderRadius: "8px" }} />
+                                <button type="button" onClick={() => removeExistingImage(img)} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "white", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>Remove</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {previewUrls && previewUrls.length > 0 && (
+                          <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
+                            {previewUrls.map((url, i) => (
+                              <div key={i} style={{ position: "relative" }}>
+                                <img src={url} alt={`Preview ${i}`} style={{ width: "120px", borderRadius: "8px" }} />
+                                <button type="button" onClick={() => removeSelectedFile(i)} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "white", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>Remove</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="form-group full">
+                        <label>Description</label>
+                        <textarea name="description" value={form.description} onChange={handleChange} />
+                      </div>
+
+                      {error && (
+                        <div style={{ 
+                          background: "#fee2e2", 
+                          color: "#991b1b", 
+                          padding: "12px", 
+                          borderRadius: "8px", 
+                          marginBottom: "16px",
+                          fontSize: "14px"
+                        }}>
+                          {error}
+                        </div>
+                      )}
+                      <div className="form-actions">
+                        <button 
+                          type="submit" 
+                          className="primary-btn"
+                          disabled={submitting}
+                          style={{ opacity: submitting ? 0.6 : 1, cursor: submitting ? "not-allowed" : "pointer" }}
+                        >
+                          {submitting ? "Processing..." : editingId ? "Update Room" : "Add Room"}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="secondary-btn" 
+                          onClick={() => { setShowForm(false); resetForm(); setError(""); }}
+                          disabled={submitting}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+
       </div>
     </div>
   );

@@ -1,6 +1,19 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../Admin/Manage_Room.css";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as ReTooltip,
+  Legend,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid
+} from "recharts";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -14,6 +27,11 @@ function PaymentReports() {
 
   const [summary, setSummary] = useState(null);
   const [transactions, setTransactions] = useState([]);
+
+  const [distribution, setDistribution] = useState(null); // { Paid: x, Pending: y }
+  const [distributionBy, setDistributionBy] = useState("amount"); // amount | count
+  const [trendSeries, setTrendSeries] = useState([]);
+  const [trendDays, setTrendDays] = useState(30);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -40,6 +58,52 @@ function PaymentReports() {
       setSummary(null);
     }
   }, [month, token]);
+
+  /* ================= FETCH DISTRIBUTION ================= */
+  const fetchDistribution = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `${API}/api/admin/payments/status-distribution?month=${month}&by=${distributionBy}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (!res.ok) {
+        setDistribution(null);
+        return;
+      }
+
+      const d = await res.json();
+      setDistribution(d);
+    } catch (err) {
+      console.error(err);
+      setDistribution(null);
+    }
+  }, [month, distributionBy, token]);
+
+  /* ================= FETCH TRENDS ================= */
+  const fetchTrends = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `${API}/api/admin/payments/trends?days=${trendDays}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!res.ok) {
+        setTrendSeries([]);
+        return;
+      }
+
+      const data = await res.json();
+      // normalize series -> [{ date, total }]
+      const series = (data.series || []).map(s => ({ date: s._id, total: s.total }));
+      setTrendSeries(series);
+    } catch (err) {
+      console.error(err);
+      setTrendSeries([]);
+    }
+  }, [trendDays, token]);
 
   /* ================= FETCH TRANSACTIONS ================= */
 
@@ -77,10 +141,25 @@ function PaymentReports() {
     setLoading(true);
     setError("");
 
-    Promise.all([fetchSummary(), fetchTransactions()])
+    Promise.all([fetchSummary(), fetchTransactions(), fetchDistribution(), fetchTrends()])
       .finally(() => setLoading(false));
-  }, [month, fetchSummary, fetchTransactions, token, navigate]);
+  }, [month, fetchSummary, fetchTransactions, fetchDistribution, fetchTrends, trendDays, distributionBy, token, navigate]);
 
+  /* ================= VERIFY HANDLER ================= */
+  async function handleVerify(id) {
+    try {
+      const res = await fetch(`${API}/api/admin/payments/verify/${id}`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error('Verify failed');
+      alert('Verification completed');
+      // refresh data
+      setLoading(true);
+      await Promise.all([fetchSummary(), fetchTransactions(), fetchDistribution(), fetchTrends()]);
+    } catch (err) {
+      alert(err.message || 'Verify failed');
+    } finally {
+      setLoading(false);
+    }
+  }
   /* ================= LOGOUT ================= */
 
   function handleLogout() {
@@ -155,6 +234,78 @@ function PaymentReports() {
 
         {/* ===== TRANSACTIONS ===== */}
         <div className="card">
+          <h3 className="card-title">Payment Overview</h3>
+
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12 }}>
+            <div>
+              <label>Month</label>
+              <input type="month" value={month} onChange={e => setMonth(e.target.value)} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label>Distribution by</label>
+              <select value={distributionBy} onChange={e => setDistributionBy(e.target.value)}>
+                <option value="amount">Amount</option>
+                <option value="count">Count</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label>Trend</label>
+              <button onClick={() => setTrendDays(7)} className={trendDays === 7 ? 'active' : ''}>7d</button>
+              <button onClick={() => setTrendDays(30)} className={trendDays === 30 ? 'active' : ''}>30d</button>
+              <button onClick={() => setTrendDays(90)} className={trendDays === 90 ? 'active' : ''}>90d</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
+            <div style={{ background: '#fff', padding: 12, borderRadius: 8 }}>
+              <h4 style={{ marginBottom: 8 }}>Status Distribution</h4>
+
+              {distribution ? (
+                <ResponsiveContainer width={300} height={220}>
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(distribution).map(([k, v]) => ({ name: k, value: v }))}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={80}
+                      innerRadius={40}
+                    >
+                      {Object.keys(distribution).map((k, i) => (
+                        <Cell key={k} fill={["#10b981", "#f97316", "#ef4444", "#60a5fa"][i % 4]} />
+                      ))}
+                    </Pie>
+                    <ReTooltip formatter={(v) => typeof v === 'number' ? v.toLocaleString() : v} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p>No distribution data</p>
+              )}
+            </div>
+
+            <div style={{ background: '#fff', padding: 12, borderRadius: 8 }}>
+              <h4 style={{ marginBottom: 8 }}>Revenue Trend ({trendDays} days)</h4>
+
+              {trendSeries.length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={trendSeries}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <ReTooltip formatter={(v) => `₹${Number(v).toLocaleString()}`} />
+                    <Line type="monotone" dataKey="total" stroke="#6366F1" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p>No trend data</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
           <h3 className="card-title">Recent Transactions</h3>
 
           {loading ? (
@@ -170,6 +321,7 @@ function PaymentReports() {
                   <th>Payment</th>
                   <th>Booking</th>
                   <th>Date</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -191,6 +343,11 @@ function PaymentReports() {
                     <td>{t.bookingStatus}</td>
                     <td>
                       {new Date(t.createdAt).toLocaleDateString()}
+                    </td>
+                    <td>
+                      {t.paymentStatus !== "Paid" && (
+                        <button onClick={() => handleVerify(t._id)}>Verify</button>
+                      )}
                     </td>
                   </tr>
                 ))}

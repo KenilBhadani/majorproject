@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../Admin/Manage_Room.css";
 
@@ -10,6 +10,10 @@ function ManageBookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const listRef = useRef(null);
 
   const token = localStorage.getItem("token");
 
@@ -44,6 +48,52 @@ function ManageBookings() {
       setLoading(false);
     }
   }
+
+  // debounced live search (300ms)
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  function handleSearch() {
+    setQuery(search);
+    setTimeout(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function clearSearch() {
+    setSearch('');
+    setQuery('');
+  }
+
+  function highlight(text = "", q = "") {
+    if (!q) return text;
+    const idx = (text || "").toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return text;
+    const before = text.slice(0, idx);
+    const match = text.slice(idx, idx + q.length);
+    const after = text.slice(idx + q.length);
+    return (
+      <>
+        {before}
+        <span style={{ background: '#fde68a', padding: '0 4px', borderRadius: 4 }}>{match}</span>
+        {after}
+      </>
+    );
+  }
+
+  const filteredBookings = bookings.filter(b => {
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return true;
+    const fullName = `${b.firstName || ''} ${b.lastName || ''}`;
+    return (
+      fullName.toLowerCase().includes(q) ||
+      (b.mobileNo || '').toLowerCase().includes(q) ||
+      (b.roomId?.roomType || '').toLowerCase().includes(q) ||
+      (b.roomTitle || '').toLowerCase().includes(q) ||
+      (b.bookingStatus || '').toLowerCase().includes(q) ||
+      (b.paymentStatus || '').toLowerCase().includes(q)
+    );
+  });
 
   async function updateStatus(id, action) {
     if (!window.confirm(`Confirm ${action}?`)) return;
@@ -116,10 +166,42 @@ function ManageBookings() {
         <div className="card">
           <h3 className="card-title">Bookings List</h3>
 
-          {loading && <p>Loading bookings...</p>}
-          {!loading && bookings.length === 0 && <p>No bookings found</p>}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center' }} ref={listRef}>
+            <div className="search-wrapper">
+              <span className="search-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21l-4.35-4.35" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="#9CAAF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </span>
 
-          {!loading && bookings.length > 0 && (
+              <input
+                className="search-input"
+                placeholder="Search guest, phone, room type, status..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+              />
+
+              {search && (
+                <button
+                  className="clear-btn"
+                  onClick={clearSearch}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            <button onClick={handleSearch} className="secondary-btn">Search</button>
+            <button onClick={clearSearch} className="secondary-btn">Clear</button>
+
+            <div style={{ marginLeft: 8, color: '#6b7280' }}>{filteredBookings.length} result{filteredBookings.length !== 1 ? 's' : ''}</div>
+          </div>
+
+          {loading ? (
+            <p>Loading bookings...</p>
+          ) : filteredBookings.length === 0 ? (
+            <p>{query ? `No bookings found matching "${query}"` : "No bookings found"}</p>
+          ) : (
             <table className="room-table">
               <thead>
                 <tr>
@@ -134,18 +216,26 @@ function ManageBookings() {
               </thead>
 
               <tbody>
-                {bookings.map(b => (
+                {filteredBookings.map(b => (
                   <tr key={b._id}>
                     <td>
-                      {b.firstName} {b.lastName}
+                      {highlight(`${b.firstName || ''} ${b.lastName || ''}`, query)}
                       <br />
                       <small>{b.mobileNo}</small>
                     </td>
 
-                    <td>{b.roomType}</td>
+                    <td>{highlight(b.roomId?.roomType || b.roomTitle || '—', query)}</td>
                     <td>{new Date(b.checkIn).toLocaleDateString()}</td>
                     <td>{new Date(b.checkOut).toLocaleDateString()}</td>
-                    <td>₹{b.totalAmount}</td>
+                    <td>
+                      {(() => {
+                        const amt = b.totalAmount ?? b.amount ?? null;
+                        return amt ? `₹${Number(amt).toLocaleString('en-IN')}` : '—';
+                      })()}
+                      {b.paymentStatus && (
+                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{b.paymentStatus}</div>
+                      )}
+                    </td>
                     <td>{statusBadge(b.bookingStatus)}</td>
 
                     <td>
