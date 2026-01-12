@@ -1,18 +1,8 @@
-// src/pages/Register.jsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import "../Componentcss/Registration.css";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
-
-function isValidEmail(email) {
-  return /\S+@\S+\.\S+/.test(email);
-}
-
-// 📱 Indian mobile validation
-function isValidPhone(phone) {
-  return /^[6-9]\d{9}$/.test(phone);
-}
 
 export default function Register() {
   const navigate = useNavigate();
@@ -22,191 +12,214 @@ export default function Register() {
     email: "",
     phone: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  function handleChange(e) {
+  // ================= HANDLE INPUT CHANGE =================
+  const handleChange = (e) => {
     let { name, value } = e.target;
 
-    // 📱 Allow only numbers in phone
     if (name === "phone") {
       value = value.replace(/\D/g, "").slice(0, 10);
     }
 
-    setForm(prev => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: value }));
     setError(null);
     setSuccess(null);
-  }
+  };
 
-  function validate() {
-    if (!form.name.trim()) return "Name is required.";
-    if (!form.email.trim()) return "Email is required.";
-    if (!isValidEmail(form.email)) return "Invalid email address.";
-
-    if (!form.phone) return "Mobile number is required.";
-    if (!isValidPhone(form.phone))
-      return "Enter valid 10-digit mobile number (starts with 6–9).";
-
-    if (!form.password) return "Password is required.";
-    if (form.password.length < 6)
-      return "Password must be at least 6 characters.";
-
-    if (form.password !== form.confirmPassword)
-      return "Passwords do not match.";
-
-    return null;
-  }
-
-  async function handleSubmit(e) {
+  // ================= LOCAL REGISTER =================
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const v = validate();
-    if (v) {
-      setError(v);
+    if (
+      !form.name ||
+      !form.email ||
+      !form.phone ||
+      !form.password ||
+      !form.confirmPassword
+    ) {
+      setError("All fields are required");
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(form.phone)) {
+      setError("Invalid phone number");
+      return;
+    }
 
     try {
+      setLoading(true);
+
       const res = await fetch(`${API}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim(),
+          name: form.name,
+          email: form.email,
           phone: form.phone,
-          password: form.password
-        })
+          password: form.password,
+        }),
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Registration failed");
 
-      if (!res.ok) {
-        throw new Error(data.message || "Registration failed");
-      }
-
-      setSuccess("Registration successful! Redirecting...");
+      setSuccess("Account created successfully! Redirecting to login...");
       setForm({
         name: "",
         email: "",
         phone: "",
         password: "",
-        confirmPassword: ""
+        confirmPassword: "",
       });
 
-      setTimeout(() => navigate("/login"), 1500);
+      setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      setError(err.message || "Server error");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
+  // ================= GOOGLE SIGNUP =================
+  const handleGoogleSignup = () => {
+    setError(null);
+    setSuccess(null);
+    window.location.href = `${API}/api/auth/google`;
+  };
+
+  // ================= UI =================
   return (
     <div className="reg-split-layout">
       {/* LEFT SIDE */}
       <div className="reg-image-side">
         <div className="reg-overlay">
-          <h2 className="reg-brand-title">👑 RoyalPark</h2>
-          <p className="reg-brand-subtitle">
-            Join our exclusive community and experience luxury like never before.
-          </p>
+          <div className="reg-glass-card">
+            <h2 className="reg-brand-logo">
+              Royal<span>Park</span>
+            </h2>
+            <div className="reg-divider-gold"></div>
+            <p className="reg-brand-tagline">
+              Experience the Art of Hospitality
+            </p>
+            <ul className="reg-features-list">
+              <li>✦ Member-only luxury suites</li>
+              <li>✦ 24/7 Concierge at your service</li>
+              <li>✦ Seamless booking experience</li>
+            </ul>
+          </div>
         </div>
       </div>
 
       {/* RIGHT SIDE */}
       <div className="reg-form-side">
         <div className="reg-form-container">
-          <div className="reg-header">
-            <h1 className="reg-title">Create Account</h1>
-            <p className="reg-subtitle">Sign up to book your dream stay.</p>
+          <div className="reg-form-header">
+            <h1 className="reg-main-title">Create Account</h1>
+            <p className="reg-sub-title">
+              Welcome! Please enter your details.
+            </p>
           </div>
 
-          {error && <div className="reg-alert reg-error">{error}</div>}
-          {success && <div className="reg-alert reg-success">{success}</div>}
+          {/* GOOGLE SIGNUP */}
+          <button
+            type="button"
+            className="google-btn"
+            onClick={handleGoogleSignup}
+            disabled={loading}
+          >
+            <img
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="Google"
+            />
+            Continue with Google
+          </button>
 
-          <form className="reg-form" onSubmit={handleSubmit} noValidate>
-            <div className="reg-input-group">
+          <div className="reg-separator">
+            <span>or use email</span>
+          </div>
+
+          {error && <div className="reg-status-msg error">{error}</div>}
+          {success && <div className="reg-status-msg success">{success}</div>}
+
+          {/* LOCAL REGISTER */}
+          <form className="reg-main-form" onSubmit={handleSubmit}>
+            <div className="input-field">
               <label>Full Name</label>
               <input
                 name="name"
+                type="text"
                 value={form.name}
                 onChange={handleChange}
-                className="reg-input"
-                placeholder="John Doe"
+                required
               />
             </div>
 
-            <div className="reg-input-group">
+            <div className="input-field">
               <label>Email Address</label>
               <input
                 name="email"
                 type="email"
                 value={form.email}
                 onChange={handleChange}
-                className="reg-input"
-                placeholder="name@example.com"
+                required
               />
             </div>
 
-            <div className="reg-input-group">
+            <div className="input-field">
               <label>Phone Number</label>
               <input
                 name="phone"
+                type="tel"
                 value={form.phone}
                 onChange={handleChange}
-                className="reg-input"
-                placeholder="9876543210"
-                maxLength="10"
+                required
               />
             </div>
 
-            <div className="reg-row">
-              <div className="reg-input-group">
+            <div className="form-row">
+              <div className="input-field">
                 <label>Password</label>
                 <input
                   name="password"
                   type="password"
                   value={form.password}
                   onChange={handleChange}
-                  className="reg-input"
-                  placeholder="******"
+                  required
                 />
               </div>
 
-              <div className="reg-input-group">
-                <label>Confirm</label>
+              <div className="input-field">
+                <label>Confirm Password</label>
                 <input
                   name="confirmPassword"
                   type="password"
                   value={form.confirmPassword}
                   onChange={handleChange}
-                  className="reg-input"
-                  placeholder="******"
+                  required
                 />
               </div>
             </div>
 
-            <button type="submit" className="reg-btn" disabled={loading}>
-              {loading ? "Creating..." : "Sign Up"}
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? "Processing..." : "Create Account"}
             </button>
           </form>
 
-          <div className="reg-footer">
-            <p>
-              Already have an account?{" "}
-              <Link to="/login" className="reg-link">
-                Log in
-              </Link>
-            </p>
-          </div>
+          <p className="reg-login-redirect">
+            Already a member? <Link to="/login">Log in here</Link>
+          </p>
         </div>
       </div>
     </div>

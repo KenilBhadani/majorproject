@@ -5,7 +5,6 @@ import { Users, ShieldCheck, ArrowRight } from "lucide-react";
 import Header2 from "./Header2";
 import Footer from "./footer";
 import FloatingInput from "./FloatingInput";
-
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -109,29 +108,36 @@ export default function BookingForm() {
   }, [API_URL]);
 
   /* =========================
-     DATE CALCULATION
+     DATE & PRICING CALCULATION
   ========================= */
-  const { nights, checkInDate, checkOutDate } = useMemo(() => {
-    if (!searchParams) return { nights: 0, checkInDate: null, checkOutDate: null };
-    const inD = new Date(searchParams.checkIn);
-    const outD = new Date(searchParams.checkOut);
-    const diff = Math.max(1, Math.ceil((outD - inD) / 86400000));
-    return { nights: diff, checkInDate: inD, checkOutDate: outD };
-  }, [searchParams]);
+  const { nights, checkInDate, checkOutDate, subtotal, gst, total, rate, datesValid } = useMemo(() => {
+    if (!room) return { nights: 0, checkInDate: null, checkOutDate: null, subtotal: 0, gst: 0, total: 0, rate: 0, datesValid: false };
 
-  /* =========================
-     PRICING
-  ========================= */
-  const rate = Number(room?.pricing?.standardRate || 0);
-  const subtotal = rate * nights;
-  const gst = Math.round(subtotal * 0.18);
-  const total = subtotal + gst;
+    const inD = searchParams?.checkIn ? new Date(searchParams.checkIn) : null;
+    const outD = searchParams?.checkOut ? new Date(searchParams.checkOut) : null;
+
+    const validDates = inD instanceof Date && !isNaN(inD) && outD instanceof Date && !isNaN(outD) && outD > inD;
+    const nightsCount = validDates ? Math.ceil((outD - inD) / 86400000) : 0;
+
+    const roomRate = Number(room.pricing?.standardRate || room.price || 0);
+    const sub = roomRate * nightsCount;
+    const gstCalc = Math.round(sub * 0.18);
+    const tot = sub + gstCalc;
+
+    return { nights: nightsCount, checkInDate: inD, checkOutDate: outD, subtotal: sub, gst: gstCalc, total: tot, rate: roomRate, datesValid: validDates };
+  }, [room, searchParams]);
 
   /* =========================
      HANDLE SUBMIT
   ========================= */
   async function handleSubmit(e) {
     e.preventDefault();
+
+    if (!datesValid) {
+      toast.error("Please select valid check-in and check-out dates before booking.");
+      return;
+    }
+
     if (!valid) return;
 
     setLoading(true);
@@ -172,8 +178,11 @@ export default function BookingForm() {
 
         sessionStorage.clear();
 
-        toast.success("Booking successful! See you at the hotel.");
-        setTimeout(() => navigate("/booking-success"), 1500);
+        // ✅ Show toast and redirect
+        toast.success("Booking successful! Redirecting to home...", {
+          autoClose: 1500,
+        });
+
         return;
       }
 
@@ -228,8 +237,10 @@ export default function BookingForm() {
 
       sessionStorage.clear();
 
-      toast.success("Payment successful! Your booking is confirmed.");
-      setTimeout(() => navigate("/booking-success"), 1500);
+      // ✅ Show toast and redirect
+      toast.success("Payment successful! Redirecting to home...", {
+        autoClose: 1500,
+      });
     } catch (err) {
       setError(err.message || "Payment failed");
     } finally {
@@ -259,7 +270,6 @@ export default function BookingForm() {
   return (
     <>
       <Header2 />
-      {/* ✅ Toast container */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -329,7 +339,7 @@ export default function BookingForm() {
 
               <button
                 disabled={!valid || loading}
-                className="w-full mt-6 bg-slate-900 text-white py-4 rounded-xl font-bold"
+                className="w-full mt-6 bg-slate-900 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2"
               >
                 {loading ? "Processing..." : paymentMethod === "CASH" ? "Confirm Booking" : `Pay ₹${total}`}
                 <ArrowRight className="inline ml-2" />
@@ -349,22 +359,30 @@ export default function BookingForm() {
                 <div className="p-6">
                   <h3 className="text-xl font-black">{room.title}</h3>
                   <p className="text-sm text-slate-500">
-                    {checkInDate?.toDateString()} → {checkOutDate?.toDateString()}
+                    {datesValid
+                      ? `${checkInDate.toDateString()} → ${checkOutDate.toDateString()}`
+                      : "Please select check-in & check-out dates"}
                   </p>
 
                   <div className="mt-4 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>₹{rate} × {nights}</span>
-                      <span>₹{subtotal}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>GST (18%)</span>
-                      <span>₹{gst}</span>
-                    </div>
-                    <div className="border-t pt-3 flex justify-between font-black text-lg">
-                      <span>Total</span>
-                      <span>₹{total}</span>
-                    </div>
+                    {datesValid ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span>₹{rate} × {nights}</span>
+                          <span>₹{subtotal}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>GST (18%)</span>
+                          <span>₹{gst}</span>
+                        </div>
+                        <div className="border-t pt-3 flex justify-between font-black text-lg">
+                          <span>Total</span>
+                          <span>₹{total}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-red-500 font-semibold">Booking calculation unavailable. Please select dates.</p>
+                    )}
                   </div>
 
                   <div className="mt-4 flex items-center gap-2 text-emerald-600 text-xs">

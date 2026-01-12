@@ -1,20 +1,16 @@
-// RoomBooking.js
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import RoomCard from "./RoomCard";
 import Header2 from "./Header2";
-import BookingSteps from "./Bookingstep";
 import Footer from "./footer";
 import { LayoutGrid, AlertCircle, Loader2, Search } from "lucide-react";
-import { toast } from 'react-toastify';
+import { toast } from "react-toastify";
 
 export default function RoomBooking() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /* =========================
-     INITIAL SEARCH PARAMS
-  ========================= */
+  // Initial search params
   const initialSearch = location.state?.searchParams || {
     checkIn: "",
     checkOut: "",
@@ -30,9 +26,7 @@ export default function RoomBooking() {
 
   const API_URL = "http://localhost:5000";
 
-  /* =========================
-     FETCH ROOMS
-  ========================= */
+  // Fetch rooms
   const fetchAvailableRooms = useCallback(async () => {
     try {
       setLoading(true);
@@ -40,7 +34,10 @@ export default function RoomBooking() {
 
       let url = `${API_URL}/api/rooms/available`;
 
-      if (searchParams.checkIn && searchParams.checkOut) {
+      // Only add query if at least one search param is filled
+      const hasQuery =
+        searchParams.checkIn || searchParams.checkOut || searchParams.roomType || searchParams.guests;
+      if (hasQuery) {
         const query = new URLSearchParams(searchParams).toString();
         url += `?${query}`;
       }
@@ -58,63 +55,57 @@ export default function RoomBooking() {
     }
   }, [searchParams]);
 
-  /* =========================
-     SEARCH CLICK
-  ========================= */
-  const handleSearch = () => {
-    if (!searchParams.checkIn || !searchParams.checkOut) {
-      alert("Please select check-in and check-out dates");
-      return;
+  // Run on page load
+  useEffect(() => {
+    fetchAvailableRooms();
+
+    // Restore previous search/room selection
+    if (location.state?.restored) {
+      const payload = location.state.selectedRoom
+        ? { type: "room", payload: location.state.selectedRoom }
+        : { type: "search", payload: location.state.searchParams };
+
+      setRestoredInfo(payload);
+      toast.success(
+        payload.type === "room"
+          ? "Your selected room has been restored"
+          : "Your previous search has been restored"
+      );
+      navigate(location.pathname, { replace: true, state: {} });
     }
+  }, [fetchAvailableRooms, location.state, navigate]);
+
+  // Handle search click
+  const handleSearch = () => {
     fetchAvailableRooms();
   };
 
-  /* =========================
-     SELECT ROOM
-  ========================= */
+  // Handle selecting a room
   const handleSelectRoom = (room) => {
+    if (!searchParams.checkIn || !searchParams.checkOut) {
+      toast.error("Please select valid check-in and check-out dates before booking.");
+      return; // Prevent navigating
+    }
+
     navigate("/booking/form", {
       state: { room, searchParams },
     });
   };
 
-  /* =========================
-     INITIAL LOAD
-  ========================= */
-  useEffect(() => {
-    // If we were redirected here with restored state, show a toast and a banner
-    if (location.state?.restored) {
-      const payload = location.state.selectedRoom ? { type: 'room', payload: location.state.selectedRoom } : { type: 'search', payload: location.state.searchParams };
-      setRestoredInfo(payload);
-      toast.success(payload.type === 'room' ? 'Your selected room has been restored' : 'Your previous search has been restored');
-      // clear navigation state so this only shows once
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-
-    fetchAvailableRooms();
-  }, []); // load once
-
-  /* =========================
-     LOADING
-  ========================= */
   if (loading) {
     return (
       <>
         <Header2 />
-        <BookingSteps />
         <div className="flex flex-col items-center justify-center min-h-screen">
           <Loader2 className="animate-spin text-amber-600 mb-4" size={40} />
           <p className="text-slate-500 font-medium animate-pulse">
-            Finding the best rooms for you...
+            Loading rooms...
           </p>
         </div>
       </>
     );
   }
 
-  /* =========================
-     ERROR
-  ========================= */
   if (error) {
     return (
       <>
@@ -132,14 +123,11 @@ export default function RoomBooking() {
   return (
     <>
       <Header2 />
-      <BookingSteps activeStep={1} />
 
       <div className="bg-slate-50 min-h-screen py-12 px-6">
         <div className="max-w-5xl mx-auto">
 
-          {/* =========================
-              SEARCH BAR
-          ========================= */}
+          {/* SEARCH BAR */}
           <div className="bg-white p-6 rounded-2xl shadow mb-10">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
               <div>
@@ -201,26 +189,53 @@ export default function RoomBooking() {
             </div>
           </div>
 
-          {/* =========================
-              HEADER
-          ========================= */}
+          {/* RESTORED INFO */}
           {restoredInfo && (
             <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded mb-6 flex justify-between items-center">
               <div>
-                <strong className="block text-amber-900">{restoredInfo.type === 'room' ? 'Room selection restored' : 'Search restored'}</strong>
-                <p className="text-sm text-amber-700">{restoredInfo.type === 'room' ? 'We restored the room you were trying to reserve.' : 'We restored your previous search criteria.'}</p>
+                <strong className="block text-amber-900">
+                  {restoredInfo.type === "room" ? "Room selection restored" : "Search restored"}
+                </strong>
+                <p className="text-sm text-amber-700">
+                  {restoredInfo.type === "room"
+                    ? "We restored the room you were trying to reserve."
+                    : "We restored your previous search criteria."}
+                </p>
               </div>
               <div className="flex gap-2">
-                {restoredInfo.type === 'room' ? (
-                  <button className="bg-amber-700 text-white px-4 py-2 rounded" onClick={() => navigate('/booking/form', { state: { room: restoredInfo.payload, searchParams } })}>Continue</button>
+                {restoredInfo.type === "room" ? (
+                  <button
+                    className="bg-amber-700 text-white px-4 py-2 rounded"
+                    onClick={() =>
+                      navigate("/booking/form", {
+                        state: { room: restoredInfo.payload, searchParams },
+                      })
+                    }
+                  >
+                    Continue
+                  </button>
                 ) : (
-                  <button className="bg-amber-700 text-white px-4 py-2 rounded" onClick={() => { fetchAvailableRooms(); setRestoredInfo(null); }}>View results</button>
+                  <button
+                    className="bg-amber-700 text-white px-4 py-2 rounded"
+                    onClick={() => {
+                      fetchAvailableRooms();
+                      setRestoredInfo(null);
+                    }}
+                  >
+                    View results
+                  </button>
                 )}
-                <button className="border border-amber-700 text-amber-700 px-3 py-2 rounded" onClick={() => setRestoredInfo(null)}>Dismiss</button>
+                <button
+                  className="border border-amber-700 text-amber-700 px-3 py-2 rounded"
+                  onClick={() => setRestoredInfo(null)}
+                >
+                  Dismiss
+                </button>
               </div>
             </div>
           )}
 
+          {/* ROOM LIST HEADER */}
           <header className="mb-8">
             <div className="flex items-center gap-2 text-amber-600 mb-2">
               <LayoutGrid size={20} />
@@ -232,13 +247,11 @@ export default function RoomBooking() {
               Select Your Space
             </h2>
             <p className="text-slate-500 mt-2 font-medium">
-              Showing {rooms.length} available rooms
+              Showing {rooms.length} available room{rooms.length !== 1 && "s"}
             </p>
           </header>
 
-          {/* =========================
-              ROOM LIST
-          ========================= */}
+          {/* ROOM LIST */}
           <div className="flex flex-col gap-6">
             {rooms.length === 0 ? (
               <div className="text-center py-24 bg-white rounded-2xl border border-dashed">
@@ -251,13 +264,14 @@ export default function RoomBooking() {
                 <RoomCard
                   key={room._id}
                   room={room}
-                  onSelect={handleSelectRoom}
+                  onSelect={handleSelectRoom} // Show alert if dates not selected
                 />
               ))
             )}
           </div>
         </div>
       </div>
+
       <Footer />
     </>
   );

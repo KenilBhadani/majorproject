@@ -1,216 +1,269 @@
-/* --- LAYOUT --- */
+/* --- DESIGN TOKENS --- */
+:root {
+    --primary: #14213d;
+    --accent: #fca311;
+    --accent-hover: #e59400;
+    --text-main: #1f2937;
+    --text-muted: #6b7280;
+    --bg-light: #f8fafc;
+    --white: #ffffff;
+    --error-bg: #fef2f2;
+    --error-text: #991b1b;
+    --success-bg: #f0fdf4;
+    --success-text: #166534;
+    --radius-lg: 24px;
+    --radius-md: 12px;
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- BASE RESET --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
 .reg-split-layout {
     display: flex;
     min-height: 100vh;
     width: 100%;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #ffffff;
+    background: var(--white);
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
 
-/* --- LEFT SIDE (Image) --- */
+/* --- LEFT SIDE: BRANDING --- */
 .reg-image-side {
-    flex: 1;
-    background-image: url('https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
-    background-size: cover;
-    background-position: center;
+    flex: 1.4;
+    background: url('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1500&q=80') center/cover no-repeat;
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-/* Dark Overlay on Image */
 .reg-overlay {
-    background: rgba(20, 33, 61, 0.7); /* Dark Blue Overlay */
-    width: 100%;
     height: 100%;
+    width: 100%;
+    background: linear-gradient(135deg, rgba(20, 33, 61, 0.92) 0%, rgba(20, 33, 61, 0.6) 100%);
     display: flex;
-    flex-direction: column;
-    justify-content: center;
     align-items: center;
-    text-align: center;
+    justify-content: center;
     padding: 40px;
-    color: white;
 }
 
-.reg-brand-title {
-    font-size: 3rem;
+.reg-glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 60px 40px;
+    border-radius: var(--radius-lg);
+    text-align: center;
+    color: var(--white);
+    box-shadow: var(--shadow-xl);
+    max-width: 500px;
+}
+
+.reg-brand-logo {
+    font-size: 3.5rem;
     font-weight: 800;
-    margin-bottom: 20px;
-    color: #fca311; /* Gold */
+    letter-spacing: -2px;
+    margin-bottom: 10px;
 }
 
-.reg-brand-subtitle {
-    font-size: 1.2rem;
-    max-width: 400px;
-    line-height: 1.6;
-    color: #e5e7eb;
+.reg-brand-logo span { color: var(--accent); }
+
+.reg-divider-gold {
+    width: 80px;
+    height: 4px;
+    background: var(--accent);
+    margin: 24px auto;
+    border-radius: 2px;
 }
 
-/* --- RIGHT SIDE (Form) --- */
+.reg-features-list {
+    list-style: none;
+    margin-top: 30px;
+    text-align: left;
+    font-size: 1.1rem;
+    line-height: 2.8;
+}
+
+/* --- RIGHT SIDE: FORM --- */
 .reg-form-side {
     flex: 1;
     display: flex;
-    align-items: center;
     justify-content: center;
-    padding: 40px;
-    background-color: #f9fafb; /* Very light gray */
+    align-items: center;
+    padding: 20px; /* Reduced padding to give container more room */
+    background-color: var(--bg-light);
 }
 
 .reg-form-container {
     width: 100%;
-    max-width: 450px;
-    background: white;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    max-width: 480px;
+    background: var(--white);
+    padding: 40px; /* Standardized padding */
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden; /* Fix: Keeps content inside the radius */
 }
 
-/* --- HEADER --- */
-.reg-header {
-    margin-bottom: 30px;
-    text-align: center;
-}
+.reg-form-header { text-align: center; margin-bottom: 24px; }
+.reg-main-title { font-size: 2rem; color: var(--primary); font-weight: 800; margin-bottom: 8px; }
+.reg-sub-title { color: var(--text-muted); font-size: 0.95rem; }
 
-.reg-title {
-    font-size: 2rem;
-    color: #14213d; /* Dark Blue */
-    font-weight: 700;
-    margin-bottom: 5px;
-}
-
-.reg-subtitle {
-    color: #6b7280; /* Gray */
-    font-size: 0.95rem;
-}
-
-/* --- FORM ELEMENTS --- */
-.reg-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.reg-input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.reg-input-group label {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #374151;
-}
-
-.reg-input {
+/* Social Login Button */
+.google-btn {
     width: 100%;
-    padding: 12px 16px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 1rem;
-    color: #1f2937;
-    transition: all 0.3s;
-    background-color: #ffffff;
-}
-
-.reg-input:focus {
-    outline: none;
-    border-color: #fca311; /* Gold border on focus */
-    box-shadow: 0 0 0 3px rgba(252, 163, 17, 0.2);
-}
-
-/* Row for passwords */
-.reg-row {
     display: flex;
-    gap: 15px;
-}
-.reg-row .reg-input-group {
-    flex: 1;
-}
-
-/* --- ALERTS --- */
-.reg-alert {
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
     padding: 12px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-    text-align: center;
+    border: 1.5px solid #e2e8f0;
+    background: var(--white);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: var(--transition);
 }
 
-.reg-error {
-    background-color: #fee2e2;
-    color: #991b1b;
-    border: 1px solid #fecaca;
+.google-btn img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
 }
 
-.reg-success {
-    background-color: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+.google-btn:hover { 
+    background: #f8fafc; 
+    border-color: #cbd5e1;
 }
 
-/* --- BUTTON --- */
-.reg-btn {
-    margin-top: 10px;
-    background-color: #14213d; /* Dark Blue */
-    color: white;
-    border: none;
+.reg-separator {
+    margin: 24px 0;
+    display: flex;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.reg-separator::before, .reg-separator::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.reg-separator span { padding: 0 12px; }
+
+/* Form Field Groups */
+.input-field { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 6px; 
+    margin-bottom: 16px; 
+    width: 100%; /* Ensure full width */
+}
+.input-field label { font-size: 0.85rem; font-weight: 700; color: var(--primary); }
+
+.input-field input {
+    width: 100%; /* Critical fix: Ensure input doesn't stretch past label */
+    padding: 12px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    color: var(--text-main);
+    transition: var(--transition);
+}
+
+.input-field input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(252, 163, 17, 0.15);
+}
+
+/* --- FIXED ROW DESIGN --- */
+.form-row { 
+    display: flex; 
+    gap: 12px; 
+    width: 100%; 
+    justify-content: space-between;
+}
+
+.form-row .input-field { 
+    flex: 1; 
+    min-width: 0; /* Fix: Allows flex items to shrink below their content size */
+}
+
+/* Primary Action Button */
+.submit-btn {
+    width: 100%;
     padding: 14px;
+    background: var(--primary);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-md);
     font-size: 1rem;
     font-weight: 700;
-    border-radius: 8px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: var(--transition);
+    margin-top: 8px;
 }
 
-.reg-btn:hover {
-    background-color: #fca311; /* Gold on hover */
-    color: #14213d;
+.submit-btn:hover { 
+    background: var(--accent); 
+    color: var(--primary); 
+    transform: translateY(-2px);
 }
 
-.reg-btn:disabled {
-    background-color: #9ca3af;
-    cursor: not-allowed;
-}
-
-/* --- FOOTER --- */
-.reg-footer {
-    margin-top: 25px;
-    text-align: center;
+/* Feedback Messages */
+.reg-status-msg { 
+    padding: 12px; 
+    border-radius: var(--radius-md); 
+    margin-bottom: 20px; 
+    text-align: center; 
+    font-weight: 600; 
     font-size: 0.9rem;
-    color: #6b7280;
 }
 
-.reg-link {
-    color: #14213d;
-    font-weight: 700;
-    text-decoration: none;
-    margin-left: 5px;
+.reg-status-msg.error { 
+    background: var(--error-bg); 
+    color: var(--error-text); 
+    border: 1px solid #fee2e2; 
 }
 
-.reg-link:hover {
-    color: #fca311;
-    text-decoration: underline;
+.reg-status-msg.success { 
+    background: var(--success-bg); 
+    color: var(--success-text); 
+    border: 1px solid #dcfce7; 
 }
 
-/* --- MOBILE RESPONSIVE --- */
-@media (max-width: 900px) {
-    .reg-split-layout {
-        flex-direction: column;
-    }
+/* Footer Link */
+.reg-login-redirect { margin-top: 24px; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
+.reg-login-redirect a { color: var(--primary); font-weight: 700; text-decoration: none; transition: var(--transition); }
+.reg-login-redirect a:hover { color: var(--accent); }
 
-    .reg-image-side {
-        display: none; /* Hide image on mobile for cleaner look */
-    }
+/* --- RESPONSIVE BREAKPOINTS --- */
+@media (max-width: 1024px) {
+    .reg-image-side { display: none; }
+    .reg-form-side { background: var(--white); padding: 20px; }
+    .reg-form-container { box-shadow: none; padding: 0; max-width: 100%; }
+}
 
-    .reg-form-side {
-        padding: 20px;
-        background-color: #ffffff;
+@media (max-width: 500px) {
+    .form-row { 
+        flex-direction: column; /* Stack password fields on mobile to prevent overflow */
+        gap: 0; 
     }
-
-    .reg-form-container {
-        box-shadow: none;
-        padding: 0;
-    }
+    .reg-main-title { font-size: 1.75rem; }
 }

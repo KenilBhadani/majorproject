@@ -1,85 +1,66 @@
+import React from "react";
+import HeaderOfCustomer from "./HeaderOfCustomer";
 import hotelVideo from "../images/Luxury_hotel.mp4";
 
 export default function EXPO() {
   return (
-    <div className="bg-white text-slate-800">
-      
-      {/* Hero Section */}
-      <div className="relative h-64 bg-slate-900 flex items-center justify-center">
-        <h1 className="text-4xl text-white font-serif font-bold">
-          Our Story
-        </h1>
-      </div>
+    <div className="bg-white text-slate-800 antialiased">
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-12">
+      {/* ================= HEADER ================= */}
+      <HeaderOfCustomer />
 
-        {/* Introduction */}
-        <h2 className="text-2xl font-bold mb-4 text-amber-600">
+      {/* ================= HERO ================= */}
+      <section className="relative h-[70vh] min-h-[520px] overflow-hidden">
+        <img
+          src="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1920&q=80"
+          alt="Luxury Hotel"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70 flex items-center justify-center">
+          <h1 className="text-5xl md:text-7xl text-white font-serif font-bold tracking-tight">
+            Our Story
+          </h1>
+        </div>
+      </section>
+
+      {/* ================= CONTENT ================= */}
+      <main className="max-w-4xl mx-auto px-6 py-20">
+
+        <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6 text-amber-600">
           A Legacy of Luxury
         </h2>
-        <p className="mb-6 text-gray-600 leading-relaxed">
-          Established in 2020, our hotel began with a simple yet powerful vision:
-          to create a sanctuary where modern luxury meets timeless hospitality.
-          Located in the heart of the city, we have welcomed thousands of guests
-          seeking comfort, elegance, and unforgettable experiences.
+
+        <p className="mb-6 text-slate-600 text-lg leading-relaxed">
+          Established in 2020, our hotel began with a vision to redefine luxury
+          hospitality through thoughtful experiences, elegant design, and
+          personalized service.
         </p>
 
-        <p className="mb-10 text-gray-600 leading-relaxed">
-          Every detail of our hotel — from architectural design to personalized
-          service — is crafted to ensure a peaceful and premium stay. We believe
-          true luxury lies in thoughtful experiences and genuine care.
+        <p className="mb-12 text-slate-600 text-lg leading-relaxed">
+          Every detail is carefully crafted to offer comfort, warmth, and
+          unforgettable moments for our guests.
         </p>
 
-        {/* Video Section */}
-        <div className="w-full h-64 bg-gray-200 rounded-xl overflow-hidden mb-12 shadow-lg">
+        {/* Video */}
+        <div className="aspect-video rounded-2xl overflow-hidden shadow-2xl border-8 border-slate-50">
           <video
             className="w-full h-full object-cover"
             src={hotelVideo}
             controls
             muted
             playsInline
-          >
-            Your browser does not support the video tag.
-          </video>
+          />
         </div>
+      </main>
 
-        {/* Mission Section */}
-        <h3 className="text-xl font-bold mb-3 text-slate-800">
-          Our Mission
-        </h3>
-        <p className="text-gray-600 leading-relaxed mb-4">
-          Our mission is to deliver an exceptional hospitality experience that
-          seamlessly blends comfort, elegance, and personalized service. We aim
-          to create a welcoming environment where every guest feels valued,
-          relaxed, and inspired.
+      {/* ================= FOOTER ================= */}
+      <footer className="py-12 border-t border-slate-100 text-center bg-white">
+        <p className="text-[10px] tracking-[0.4em] text-slate-400 font-bold uppercase">
+          RoyalPark Hotel & Resorts
         </p>
-
-        <p className="text-gray-600 leading-relaxed mb-4">
-          Through attention to detail, refined design, and a commitment to
-          excellence, we strive to exceed expectations at every stage of the
-          guest journey — from effortless check-ins to tranquil stays and
-          memorable dining experiences.
-        </p>
-
-        <p className="text-gray-600 leading-relaxed mb-10">
-          We are dedicated to sustainability, community engagement, and
-          continuous innovation, ensuring our hotel remains a trusted
-          destination for travelers seeking quality, authenticity, and
-          timeless luxury.
-        </p>
-
-        {/* Vision Section */}
-        <h3 className="text-xl font-bold mb-3 text-slate-800">
-          Our Vision
-        </h3>
-        <p className="text-gray-600 leading-relaxed">
-          To become a leading symbol of modern hospitality, recognized for
-          excellence, warmth, and unforgettable guest experiences across every
-          stay.
-        </p>
-
-      </div>
+      </footer>
     </div>
   );
 }

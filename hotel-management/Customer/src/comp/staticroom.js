@@ -44,6 +44,7 @@ const RoomCard = ({ room }) => {
 
   return (
     <div className="group relative bg-white rounded-[2rem] p-3 border border-slate-200/50 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_30px_60px_-15px_rgba(99,102,241,0.15)] transition-all duration-700 ease-out">
+      
       {/* IMAGE SECTION */}
       <div className="relative aspect-[4/3] rounded-[1.6rem] overflow-hidden">
         <img
@@ -54,7 +55,7 @@ const RoomCard = ({ room }) => {
 
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-80" />
 
-        {/* TOP BADGES */}
+        {/* BADGES */}
         <div className="absolute inset-x-4 top-4 flex justify-between items-center z-10">
           <div className="flex gap-2">
             <div className="px-3 py-1 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full flex items-center gap-1.5 shadow-xl">
@@ -65,7 +66,7 @@ const RoomCard = ({ room }) => {
             </div>
 
             {room.isPopular && (
-              <div className="px-3 py-1 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-indigo-500/30">
+              <div className="px-3 py-1 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg">
                 Premium
               </div>
             )}
@@ -74,16 +75,16 @@ const RoomCard = ({ room }) => {
 
         {/* IMAGE CONTROLS */}
         {images.length > 1 && (
-          <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 flex justify-between opacity-0 group-hover:opacity-100 transition-all duration-500">
+          <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 flex justify-between opacity-0 group-hover:opacity-100 transition-all">
             <button
               onClick={prevImage}
-              className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-lg text-white hover:bg-white hover:text-slate-900 flex items-center justify-center transition-all"
+              className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-lg text-white hover:bg-white hover:text-slate-900 flex items-center justify-center"
             >
               <ChevronLeft size={18} />
             </button>
             <button
               onClick={nextImage}
-              className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-lg text-white hover:bg-white hover:text-slate-900 flex items-center justify-center transition-all"
+              className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-lg text-white hover:bg-white hover:text-slate-900 flex items-center justify-center"
             >
               <ChevronRight size={18} />
             </button>
@@ -95,7 +96,7 @@ const RoomCard = ({ room }) => {
           {images.map((_, i) => (
             <span
               key={i}
-              className={`h-1 rounded-full transition-all duration-500 ${
+              className={`h-1 rounded-full ${
                 i === imageIndex ? "w-8 bg-white" : "w-1.5 bg-white/40"
               }`}
             />
@@ -104,13 +105,14 @@ const RoomCard = ({ room }) => {
       </div>
 
       {/* CONTENT */}
-      <div className="px-4 py-5">
-        <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-bold text-slate-800 tracking-tight leading-tight group-hover:text-indigo-600 transition-colors duration-300">
+      <div className="px-4 py-6">
+        {/* TITLE + PRICE (FIXED SPACING) */}
+        <div className="flex justify-between items-center gap-4 mb-4">
+          <h3 className="text-xl font-bold text-slate-800 leading-tight line-clamp-2 group-hover:text-indigo-600 transition-colors">
             {room.title}
           </h3>
 
-          <div className="text-right">
+          <div className="text-right min-w-[90px]">
             <span className="text-slate-900 font-extrabold text-2xl block">
               ₹{room.pricing?.standardRate?.toLocaleString("en-IN")}
             </span>
@@ -151,19 +153,17 @@ const RoomCard = ({ room }) => {
             onClick={() => {
               const token = localStorage.getItem("token");
               if (!token) {
-                try {
-                  sessionStorage.setItem(
-                    "pendingSelectedRoom",
-                    JSON.stringify(room)
-                  );
-                } catch {}
+                sessionStorage.setItem(
+                  "pendingSelectedRoom",
+                  JSON.stringify(room)
+                );
                 toast.warning("Please login to reserve this room");
                 navigate("/login");
                 return;
               }
               navigate("/booking", { state: { selectedRoom: room } });
             }}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white text-xs font-bold rounded-2xl hover:bg-indigo-600 transition-all duration-500 shadow-xl active:scale-95"
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white text-xs font-bold rounded-2xl hover:bg-indigo-600 transition-all shadow-xl active:scale-95"
           >
             Reserve Now
             <ArrowRight size={14} />
@@ -184,9 +184,7 @@ const RoomListing = () => {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const res = await fetch(
-          "http://127.0.0.1:5000/api/rooms/available"
-        );
+        const res = await fetch("http://127.0.0.1:5000/api/rooms/available");
         const data = await res.json();
         setRooms(data);
       } catch (err) {

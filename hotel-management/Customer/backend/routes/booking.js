@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const Booking = require("../models/Booking");
 const jwt = require("jsonwebtoken");
 
@@ -8,16 +9,12 @@ const jwt = require("jsonwebtoken");
 ========================= */
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
-
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "No token provided" });
   }
-
   try {
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    req.user = decoded; // { userId, email, role }
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
     next();
   } catch (err) {
     return res.status(401).json({ error: "Invalid or expired token" });
@@ -25,70 +22,63 @@ const authMiddleware = (req, res, next) => {
 };
 
 /* =========================
-   GET LOGGED-IN USER BOOKINGS
-   GET /api/bookings/my
+   GET USER BOOKINGS (LOGGED IN)
 ========================= */
 router.get("/my", authMiddleware, async (req, res) => {
   try {
     const bookings = await Booking.find({
       $or: [
-        { userId: req.user.userId },
+        { userId: new mongoose.Types.ObjectId(req.user.userId) },
         { email: req.user.email }
       ]
     })
-      .populate("roomId") // 🔥 IMPORTANT
+      .populate("roomId")
       .sort({ createdAt: -1 });
 
-    const formatted = bookings.map(b => ({
+    const formatted = bookings.map((b) => ({
       _id: b._id,
       status: b.status,
       amount: b.amount,
       checkIn: b.checkIn,
       checkOut: b.checkOut,
       nights: b.nights,
-
-      roomTitle: b.roomId?.title,
-      roomImage: b.roomId?.images?.[0], // ✅ SAME AS BookingForm
-    }));
-
-    res.json({ bookings: formatted });
-  } catch (err) {
-    console.error("Fetch bookings error:", err);
-    res.status(500).json({ error: "Failed to fetch bookings" });
-  }
-});
-
-/* =========================
-   SEARCH BOOKINGS BY EMAIL (GUEST)
-   GET /api/bookings/search?email=
-========================= */
-router.get("/search", async (req, res) => {
-  try {
-    const { email } = req.query;
-
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    const bookings = await Booking.find({ email })
-      .populate("roomId") // 🔥 IMPORTANT
-      .sort({ createdAt: -1 });
-
-    const formatted = bookings.map(b => ({
-      _id: b._id,
-      status: b.status,
-      amount: b.amount,
-      checkIn: b.checkIn,
-      checkOut: b.checkOut,
-      nights: b.nights,
-
       roomTitle: b.roomId?.title,
       roomImage: b.roomId?.images?.[0],
     }));
 
     res.json({ bookings: formatted });
   } catch (err) {
-    console.error("Search booking error:", err);
+    console.error("Fetch my bookings error:", err);
+    res.status(500).json({ error: "Failed to fetch bookings" });
+  }
+});
+
+/* =========================
+   SEARCH BOOKINGS (GUEST)
+========================= */
+router.get("/search", async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: "Email required" });
+
+    const bookings = await Booking.find({ email, userId: null })
+      .populate("roomId")
+      .sort({ createdAt: -1 });
+
+    const formatted = bookings.map((b) => ({
+      _id: b._id,
+      status: b.status,
+      amount: b.amount,
+      checkIn: b.checkIn,
+      checkOut: b.checkOut,
+      nights: b.nights,
+      roomTitle: b.roomId?.title,
+      roomImage: b.roomId?.images?.[0],
+    }));
+
+    res.json({ bookings: formatted });
+  } catch (err) {
+    console.error("Guest search error:", err);
     res.status(500).json({ error: "Search failed" });
   }
 });
@@ -96,26 +86,41 @@ router.get("/search", async (req, res) => {
 /* =========================
    CANCEL BOOKING
 ========================= */
-router.post("/cancel", authMiddleware, async (req, res) => {
+router.put("/:id/cancel", async (req, res) => {
   try {
-    const { bookingId } = req.body;
+    const { id } = req.params;
+    const token = req.headers.authorization?.split(" ")[1];
+    let query = { _id: id };
 
-    const booking = await Booking.findOne({
-      _id: bookingId,
-      userId: req.user.userId,
-    });
+    if (token) {
+      // Logged-in user: ensure booking belongs to them
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      query.$or = [
+        { userId: new mongoose.Types.ObjectId(decoded.userId) }, // ✅ Use 'new'
+        { email: decoded.email }
+      ];
+    } else {
+      // Guest bookings only
+      query.userId = null;
+    }
+
+    const booking = await Booking.findOne(query);
 
     if (!booking) {
-      return res.status(404).json({ error: "Booking not found" });
+      return res.status(404).json({ error: "Booking not found or unauthorized" });
+    }
+
+    if (booking.status.toLowerCase() === "cancelled") {
+      return res.status(400).json({ error: "Booking is already cancelled" });
     }
 
     booking.status = "Cancelled";
     await booking.save();
 
-    res.json({ success: true });
+    res.json({ success: true, message: "Booking cancelled successfully" });
   } catch (err) {
     console.error("Cancel booking error:", err);
-    res.status(500).json({ error: "Cancel failed" });
+    res.status(500).json({ error: "Failed to cancel booking" });
   }
 });
 
@@ -124,19 +129,7 @@ router.post("/cancel", authMiddleware, async (req, res) => {
 ========================= */
 router.post("/save", async (req, res) => {
   try {
-    const {
-      bookingData,
-      paymentStatus,
-      paymentIntentId,
-      roomId,
-      ratePerNight,
-      checkIn,
-      checkOut,
-      nights,
-      subtotal,
-      gst,
-      amount,
-    } = req.body;
+    const { bookingData, paymentStatus, roomId, amount, checkIn, checkOut, nights } = req.body;
 
     let userId = null;
     const token = req.headers.authorization?.split(" ")[1];
@@ -144,26 +137,19 @@ router.post("/save", async (req, res) => {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.userId;
-      } catch {}
+      } catch (e) {}
     }
 
     const booking = new Booking({
-      roomId, // ✅ reference to Room
-      ratePerNight,
+      ...req.body,
+      roomId,
+      userId,
+      email: bookingData.email,
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
-      email: bookingData.email,
       phone: bookingData.phone,
-      gst: bookingData.gst,
-
-      paymentIntentId,
-      amount,
-      subtotal,
-      gstAmount: gst,
-      nights,
       checkIn: new Date(checkIn),
       checkOut: new Date(checkOut),
-      userId,
       status: paymentStatus === "PAID" ? "Confirmed" : "Pending",
     });
 

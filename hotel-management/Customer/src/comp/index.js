@@ -1,37 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import '../Componentcss/index.css';
 import { toast } from 'react-toastify';
+import LoginButton from './LoginButton'; // Make sure the path is correct
 
 function Horosection() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoginDropdownOpen, setIsLoginDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  const location = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
-
-  useEffect(() => {
-    // Update login state on route changes (single-tab) so header reflects latest auth
-    setIsLoggedIn(!!localStorage.getItem('token'));
-  }, [location]);
-
-  useEffect(() => {
-    // Listen for storage events (other tabs) to stay in sync
-    const onStorage = () => setIsLoggedIn(!!localStorage.getItem('token'));
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setIsLoginDropdownOpen(false);
-    setIsMenuOpen(false);
-    setIsLoggedIn(false);
-    navigate('/');
-  };
 
   const [bookingData, setBookingData] = useState({
     checkIn: '',
@@ -40,38 +15,22 @@ function Horosection() {
     guests: 1
   });
 
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const closeMenu = () => setIsMenuOpen(false);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setBookingData({ ...bookingData, [name]: value });
   };
 
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
-  const toggleLoginDropdown = (e) => {
-    e.preventDefault();
-    setIsLoginDropdownOpen(!isLoginDropdownOpen);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsLoginDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const handleSearch = (e) => {
     e.preventDefault();
 
-    // Require login before searching
+    // Check if logged in before searching
     if (!localStorage.getItem('token')) {
-      // persist this search so we can return after login
       try {
         sessionStorage.setItem('pendingSearch', JSON.stringify(bookingData));
-      } catch (e) {
-        // ignore storage errors
-      }
+      } catch (err) {}
       toast.warning('Please login to check availability');
       navigate('/login');
       return;
@@ -81,11 +40,10 @@ function Horosection() {
     const checkOutDate = new Date(bookingData.checkOut);
 
     if (checkInDate >= checkOutDate) {
-      alert("Check-out date must be after Check-in date");
+      toast.error("Check-out date must be after Check-in date"); // <-- replaced alert with toast
       return;
     }
 
-    // Navigate to RoomBooking page with searchParams
     navigate('/booking', { state: { searchParams: bookingData } });
   };
 
@@ -106,45 +64,23 @@ function Horosection() {
             </div>
 
             <ul className={`h-nav-menu ${isMenuOpen ? "active" : ""}`}>
-              <li className="h-nav-item"><Link to="/">Home</Link></li>
-              <li className="h-nav-item"><Link to="/aboutpage">About</Link></li>
-              <li className="h-nav-item"><Link to="/services">Services</Link></li>
-              <li className="h-nav-item"><Link to="/explore">Explore</Link></li>
-              <li className="h-nav-item"><Link to="/contact">Contact</Link></li>
-              <li className="h-nav-item"><Link to="/booking">Bookings</Link></li>
+              <li className="h-nav-item"><Link to="/" onClick={closeMenu}>Home</Link></li>
+              <li className="h-nav-item"><Link to="/aboutpage" onClick={closeMenu}>About</Link></li>
+              <li className="h-nav-item"><Link to="/services" onClick={closeMenu}>Services</Link></li>
+              <li className="h-nav-item"><Link to="/explore" onClick={closeMenu}>Explore</Link></li>
+              <li className="h-nav-item"><Link to="/contact" onClick={closeMenu}>Contact</Link></li>
+              <li className="h-nav-item"><Link to="/booking" onClick={closeMenu}>Bookings</Link></li>
+
+              {/* MOBILE LOGIN BUTTON */}
               <li className="h-nav-item h-mobile-only">
                 <div className="h-mobile-login-section">
-                  {isLoggedIn ? (
-                    <button onClick={() => { handleLogout(); }} className="h-mobile-logout-btn">Logout</button>
-                  ) : (
-                    <>
-                      <p className="h-mobile-label">Login as:</p>
-                      <div className="h-mobile-options">
-                        <Link to="/login" onClick={() => setIsMenuOpen(false)}>Customer</Link>
-                        <Link to="/login/staff" onClick={() => setIsMenuOpen(false)}>Staff</Link>
-                      </div>
-                    </>
-                  )}
+                  <LoginButton isMobile={true} closeMenu={closeMenu} />
                 </div>
               </li>
             </ul>
 
-            {/* DESKTOP LOGIN DROPDOWN */}
-            <div className="h-nav-actions h-desktop-only" ref={dropdownRef}>
-              {isLoggedIn ? (
-                <button onClick={handleLogout} className="h-login-btn">Logout</button>
-              ) : (
-                <>
-                  <button onClick={toggleLoginDropdown} className="h-login-btn">Login ▾</button>
-                  {isLoginDropdownOpen && (
-                    <div className="h-login-dropdown-menu">
-                      <Link to="/login" className="h-dropdown-item" onClick={() => setIsLoginDropdownOpen(false)}>Customer Login</Link>
-                      <Link to="/login/staff" className="h-dropdown-item" onClick={() => setIsLoginDropdownOpen(false)}>Staff Login</Link>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            {/* DESKTOP LOGIN BUTTON */}
+            <LoginButton isMobile={false} />
           </div>
         </div>
 

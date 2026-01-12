@@ -1,160 +1,212 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import "../Componentcss/Login.css";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL;
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  function handleChange(e) {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    setError(null);
-  }
+  const [isRecovery, setIsRecovery] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [message, setMessage] = useState("");
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
 
-    if (!form.email || !form.password) {
-      setError("Email and password are required");
-      return;
+    const token = params.get("token") || params.get("resetToken");
+    if (token) setResetToken(token);
+
+    const googleToken = params.get("token");
+    if (googleToken) {
+      localStorage.setItem("token", googleToken);
+      fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${googleToken}` } })
+        .then((res) => res.json())
+        .then((user) => {
+          localStorage.setItem("user", JSON.stringify(user));
+          localStorage.setItem("role", user.role);
+          navigate("/", { replace: true });
+        })
+        .catch(() => navigate("/login"));
     }
+  }, [location.search, navigate]);
+
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setError(null);
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = `${API}/api/auth/google`;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.email || !form.password) return setError("Email and password are required");
 
     setLoading(true);
     try {
       const res = await fetch(`${API}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify(form),
       });
-
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Login failed");
 
-      if (!res.ok) {
-        throw new Error(data.message || "Login failed");
-      }
-
-      // ✅ STORE AUTH DATA
       localStorage.setItem("token", data.token);
-      localStorage.setItem("role", data.user.role);
       localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("role", data.user.role);
 
-      // If the user had a pending search or room, restore it (for non-admin users)
-      try {
-        const pending = JSON.parse(sessionStorage.getItem('pendingSearch'));
-        if (pending && data.user.role !== 'admin') {
-          sessionStorage.removeItem('pendingSearch');
-          // add a small flag so the booking page can show a restored banner/toast
-          navigate('/booking', { state: { searchParams: pending, restored: true } });
-          return;
-        }
-
-        const pendingRoom = JSON.parse(sessionStorage.getItem('pendingSelectedRoom'));
-        if (pendingRoom && data.user.role !== 'admin') {
-          sessionStorage.removeItem('pendingSelectedRoom');
-          // build reasonable default search dates (tomorrow -> day after)
-          const inDate = new Date();
-          inDate.setDate(inDate.getDate() + 1);
-          const outDate = new Date();
-          outDate.setDate(outDate.getDate() + 2);
-          const defaultSearch = {
-            checkIn: inDate.toISOString().slice(0,10),
-            checkOut: outDate.toISOString().slice(0,10),
-            roomType: pendingRoom.roomType || pendingRoom.type || '',
-            guests: 1,
-          };
-          navigate('/booking', { state: { selectedRoom: pendingRoom, searchParams: defaultSearch, restored: true } });
-          return;
-        }
-      } catch (e) {
-        // ignore parse errors and continue to normal redirect
-      }
-
-      // ✅ ROLE BASED REDIRECT
-      if (data.user.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/");
-      }
-
+      data.user.role === "admin" ? navigate("/admin") : navigate("/");
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  const handleRecoverySubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${API}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: recoveryEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send email");
+
+      setMessage("Password reset link sent to your email.");
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!resetToken) return setError("Invalid or missing token");
+
+    try {
+      const res = await fetch(`${API}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: resetToken, newPassword: form.password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Reset failed");
+
+      setMessage("Password reset successful. You can login now.");
+      setIsRecovery(false);
+      setResetToken("");
+      setForm({ email: "", password: "" });
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   return (
-    <div className="login-split-layout">
-
-      {/* LEFT SIDE: FORM */}
-      <div className="login-form-side">
-        <div className="login-form-container">
-
-          <div className="login-header">
-            <h1 className="login-title">Welcome Back</h1>
-            <p className="login-subtitle">
-              Please enter your details to sign in.
+    <div className="reg-split-layout">
+      <div className="reg-form-side">
+        <div className="reg-form-container">
+          <div className="reg-form-header">
+            <h1 className="reg-main-title">
+              {resetToken ? "Reset Password" : isRecovery ? "Recover Password" : "Welcome Back"}
+            </h1>
+            <p className="reg-sub-title">
+              {resetToken
+                ? "Enter your new password"
+                : isRecovery
+                ? "Enter your email to receive reset link"
+                : "Please enter your details to sign in."}
             </p>
           </div>
 
-          {error && (
-            <div className="login-alert login-error">{error}</div>
+          {!resetToken && !isRecovery && (
+            <>
+              <button type="button" className="google-btn" onClick={handleGoogleLogin}>
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+                Continue with Google
+              </button>
+              <div className="reg-separator"><span>or use email</span></div>
+            </>
           )}
 
-          <form className="login-form" onSubmit={handleSubmit}>
-            <div className="login-input-group">
-              <label>Email Address</label>
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                className="login-input"
-                placeholder="name@example.com"
-              />
+          {error && <div className="reg-status-msg error">{error}</div>}
+          {message && <div className="reg-status-msg success">{message}</div>}
+
+          {/* Forms */}
+          {resetToken ? (
+            <form className="reg-main-form" onSubmit={handleResetPasswordSubmit}>
+              <div className="input-field">
+                <label>New Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              <button type="submit" className="submit-btn">Reset Password</button>
+            </form>
+          ) : isRecovery ? (
+            <form className="reg-main-form" onSubmit={handleRecoverySubmit}>
+              <div className="input-field">
+                <label>Email Address</label>
+                <input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <button type="submit" className="submit-btn">Send Reset Link</button>
+              <div className="forgot-pass-link" onClick={() => setIsRecovery(false)}>← Back to Login</div>
+            </form>
+          ) : (
+            <form className="reg-main-form" onSubmit={handleSubmit}>
+              <div className="input-field">
+                <label>Email Address</label>
+                <input type="email" name="email" value={form.email} onChange={handleChange} required />
+              </div>
+              <div className="input-field">
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <label>Password</label>
+                  <span className="forgot-pass-link" onClick={() => setIsRecovery(true)}>Forgot Password?</span>
+                </div>
+                <input type="password" name="password" value={form.password} onChange={handleChange} required />
+              </div>
+              <button type="submit" className="submit-btn">{loading ? "Signing in..." : "Login"}</button>
+            </form>
+          )}
+
+          {!resetToken && !isRecovery && (
+            <div className="reg-login-redirect">
+              Don't have an account? <Link to="/register">Sign up</Link>
             </div>
+          )}
+        </div>
+      </div>
 
-            <div className="login-input-group">
-              <label>Password</label>
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                className="login-input"
-                placeholder="Enter password"
-              />
-            </div>
-
-            <button className="login-btn" disabled={loading}>
-              {loading ? "Signing in..." : "Login"}
-            </button>
-          </form>
-
-          <div className="login-footer">
-            <p>
-              Don't have an account?
-              <Link to="/register" className="login-link"> Sign up</Link>
-            </p>
+      <div className="reg-image-side">
+        <div className="reg-overlay">
+          <div className="reg-glass-card">
+            <h2 className="reg-brand-logo">Royal<span>Park</span></h2>
+            <div className="reg-divider-gold"></div>
+            <p className="reg-brand-tagline">Welcome back to your luxury escape.</p>
           </div>
-
         </div>
       </div>
-
-      {/* RIGHT SIDE: IMAGE */}
-      <div className="login-image-side">
-        <div className="login-overlay">
-          <h2 className="login-brand-title">👑 RoyalPark</h2>
-          <p className="login-brand-subtitle">
-            Your luxury escape awaits. Log in to manage your bookings and preferences.
-          </p>
-        </div>
-      </div>
-
     </div>
   );
 }

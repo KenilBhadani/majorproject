@@ -1,5 +1,6 @@
 // ===== REACT & ROUTER =====
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 
@@ -7,6 +8,8 @@ import { loadStripe } from "@stripe/stripe-js";
 import Register from "./comp/Registration";
 import Login from "./comp/Login";
 import SLogin from "./Staff/Slogin";
+import OAuthSuccess from "./comp/OAuthSuccess"; // Page to handle Google login success
+import ResetPassword from "./comp/ResetPassword";
 
 // ===== BOOKING =====
 import BookingForm from "./comp/Bookingcus";
@@ -46,7 +49,9 @@ import Tasks from "./Staff/Tasks";
 import Reports from "./Staff/Reports";
 
 // ===== STRIPE =====
-const stripePromise = loadStripe("pk_test_51SkMIsFLOpfc1j4ILaTZdWkcAX35xQ8TKC9EG6EA7bOpjgqFfth7ifBBfyE93qC9gWTydziuqABvUgrVQVHPIPk700VHDRWx5M");
+const stripePromise = loadStripe(
+  "pk_test_51SkMIsFLOpfc1j4ILaTZdWkcAX35xQ8TKC9EG6EA7bOpjgqFfth7ifBBfyE93qC9gWTydziuqABvUgrVQVHPIPk700VHDRWx5M"
+);
 
 // ===== PROTECTED ROUTES =====
 const AdminRoute = ({ children }) => {
@@ -71,6 +76,26 @@ const StaffRoute = ({ children }) => {
 
 // ===== APP COMPONENT =====
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Handle Google login token from URL
+    const query = new URLSearchParams(location.search);
+    const token = query.get("token");
+
+    if (token) {
+      localStorage.setItem("token", token);
+      // Save placeholder user; ideally fetch real user data from backend
+      localStorage.setItem(
+        "user",
+        JSON.stringify({ name: "Google User", role: "user" })
+      );
+      // Remove token from URL to clean the address bar
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
+
   return (
     <Routes>
       {/* ===== PUBLIC LANDING PAGE ===== */}
@@ -111,6 +136,11 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
       <Route path="/login/staff" element={<SLogin />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+
+
+      {/* ===== GOOGLE OAUTH SUCCESS ===== */}
+      <Route path="/oauth-success" element={<OAuthSuccess />} />
 
       {/* ===== ADMIN ROUTES ===== */}
       <Route
