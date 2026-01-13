@@ -1,14 +1,13 @@
-# TODO: Connect Slogin.js to Database Staff Model
+# TODO: Fetch Check-in and Check-out Dates from RoomCard.js in Bookingcus.js
 
-## Tasks
-- [x] Edit src/Staff/Slogin.js:
-  - Remove static DEFAULT_EMAIL and DEFAULT_PASSWORD constants.
-  - Remove the hardcoded check for static credentials.
-  - Change fetch URL to '/api/staff/auth/login'.
-  - Update response handling to use data.staff for localStorage.
-  - Adjust role check to navigate staff to dashboard.
-  - Remove demo credentials display section.
+## Steps Completed:
 
-## Followup
-- [ ] Test staff login with database credentials.
-- [ ] Ensure backend has staff records.
+1. ✅ Modified the useEffect in Bookingcus.js to read searchParams from URLSearchParams(location.search), similar to RoomCard.js.
+2. ✅ Set searchParams state to the object parsed from URL params (checkIn, checkOut, roomType, guests).
+3. ✅ Update sessionStorage with the URL-based searchParams for persistence.
+4. ✅ Kept room loading logic unchanged (from location.state or sessionStorage).
+
+## Remaining Steps:
+
+5. Test the booking flow to ensure dates are correctly fetched and displayed on the right side.
+6. Verify that on page refresh, dates are still available via sessionStorage.

@@ -265,6 +265,8 @@ export default function RoomBooking() {
                   key={room._id}
                   room={room}
                   onSelect={handleSelectRoom} // Show alert if dates not selected
+                  checkIn={searchParams.checkIn}
+                  checkOut={searchParams.checkOut}
                 />
               ))
             )}

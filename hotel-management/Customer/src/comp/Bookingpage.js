@@ -151,10 +151,12 @@ export default function Bookingpage({ searchParams }) {
             </div>
           ) : (
             rooms.map((room) => (
-              <RoomCard 
-                key={room._id} 
-                room={room} 
-                onSelect={handleSelectRoom} 
+              <RoomCard
+                key={room._id}
+                room={room}
+                onSelect={handleSelectRoom}
+                checkIn={searchParams?.checkIn}
+                checkOut={searchParams?.checkOut}
               />
             ))
           )}
