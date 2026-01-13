@@ -11,12 +11,14 @@ function LoginButton({ isMobile = false, closeMenu }) {
 
   /* ✅ Detect login immediately after Google redirect */
   useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem("token"));
+    const check = () => !!(localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('staffToken'));
+    setIsLoggedIn(check());
   }, [location.pathname]);
 
   /* ✅ Multi-tab sync */
   useEffect(() => {
-    const sync = () => setIsLoggedIn(!!localStorage.getItem("token"));
+    const check = () => !!(localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('staffToken'));
+    const sync = () => setIsLoggedIn(check());
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
   }, []);
@@ -32,7 +34,12 @@ function LoginButton({ isMobile = false, closeMenu }) {
     return () => document.removeEventListener("mousedown", clickOutside);
   }, []);
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/logout`, { credentials: 'include' });
+    } catch (e) {
+      // ignore network errors
+    }
     localStorage.clear();
     setIsLoggedIn(false);
     setOpen(false);

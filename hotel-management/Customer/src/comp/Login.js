@@ -2,7 +2,18 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import "../Componentcss/Login.css";
 
-const API = process.env.REACT_APP_API_URL;
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// helper to safely parse JSON responses and handle HTML errors
+async function parseApiResponse(res) {
+  const text = await res.text();
+  try {
+    const data = text ? JSON.parse(text) : {};
+    return { ok: res.ok, status: res.status, data, text };
+  } catch (e) {
+    return { ok: res.ok, status: res.status, data: null, text };
+  }
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -25,15 +36,28 @@ export default function Login() {
 
     const googleToken = params.get("token");
     if (googleToken) {
-      localStorage.setItem("token", googleToken);
-      fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${googleToken}` } })
-        .then((res) => res.json())
-        .then((user) => {
-          localStorage.setItem("user", JSON.stringify(user));
-          localStorage.setItem("role", user.role);
-          navigate("/", { replace: true });
-        })
-        .catch(() => navigate("/login"));
+      (async () => {
+        try {
+          const res = await fetch(`${API}/api/auth/me`, { credentials: 'include', headers: { Authorization: `Bearer ${googleToken}` } });
+          const parsed = await parseApiResponse(res);
+          if (!parsed.ok) return navigate('/login');
+
+          const user = parsed.data;
+          if (user.role === 'admin') {
+            localStorage.setItem('adminToken', googleToken);
+            localStorage.setItem('adminUser', JSON.stringify(user));
+            localStorage.setItem('adminRole', user.role);
+            navigate('/admin', { replace: true });
+          } else {
+            localStorage.setItem('token', googleToken);
+            localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('role', user.role);
+            navigate('/', { replace: true });
+          }
+        } catch (e) {
+          navigate('/login');
+        }
+      })();
     }
   }, [location.search, navigate]);
 
@@ -53,18 +77,27 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await fetch(`${API}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Login failed");
+      const parsed = await parseApiResponse(res);
+      if (!parsed.ok) throw new Error((parsed.data && parsed.data.message) || `Login failed (${parsed.status})`);
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("role", data.user.role);
-
-      data.user.role === "admin" ? navigate("/admin") : navigate("/");
+      const data = parsed.data;
+      if (data.user.role === 'admin') {
+        // keep admin credentials separate to allow user/admin to co-exist in same browser
+        localStorage.setItem('adminToken', data.token);
+        localStorage.setItem('adminUser', JSON.stringify(data.user));
+        localStorage.setItem('adminRole', data.user.role);
+        navigate('/admin');
+      } else {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('role', data.user.role);
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -79,14 +112,15 @@ export default function Login() {
 
     try {
       const res = await fetch(`${API}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: recoveryEmail }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to send email");
+      const parsed = await parseApiResponse(res);
+      if (!parsed.ok) throw new Error((parsed.data && parsed.data.message) || `Failed to send email (${parsed.status})`);
 
-      setMessage("Password reset link sent to your email.");
+      setMessage('Password reset link sent to your email.');
     } catch (err) {
       setError(err.message);
     }
@@ -98,17 +132,18 @@ export default function Login() {
 
     try {
       const res = await fetch(`${API}/api/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: resetToken, newPassword: form.password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Reset failed");
+      const parsed = await parseApiResponse(res);
+      if (!parsed.ok) throw new Error((parsed.data && parsed.data.message) || `Reset failed (${parsed.status})`);
 
-      setMessage("Password reset successful. You can login now.");
+      setMessage('Password reset successful. You can login now.');
       setIsRecovery(false);
-      setResetToken("");
-      setForm({ email: "", password: "" });
+      setResetToken('');
+      setForm({ email: '', password: '' });
     } catch (err) {
       setError(err.message);
     }

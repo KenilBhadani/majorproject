@@ -82,16 +82,14 @@ export default function BookingForm() {
         });
         if (!res.ok) return;
         const data = await res.json();
-        setForm((prev) => ({
+        setForm(prev => ({
           ...prev,
           firstName: data.firstName || prev.firstName,
           lastName: data.lastName || prev.lastName,
           email: data.email || prev.email,
           phone: data.phone || prev.phone,
         }));
-      } catch (err) {
-        console.error("Failed to fetch user info:", err);
-      }
+      } catch {}
     }
     fetchUser();
   }, [API_URL]);
@@ -132,81 +130,105 @@ export default function BookingForm() {
       const headers = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const bookingPayload = {
-        bookingData: {
-          firstName: form.firstName,
-          lastName: form.lastName,
-          email: form.email,
-          phone: form.phone,
-          gst: form.gst,
-          requests: form.requests || "",
-          roomTitle: room.title,
-          ratePerNight: rate,
-        },
-        roomId: room._id,
-        nights,
-        subtotal,
-        gstAmount,
-        amount: total,
-        checkIn: formatDate(checkInDate),
-        checkOut: formatDate(checkOutDate),
-        paymentMethod,
-        paymentStatus: paymentMethod === "CARD" ? "PAID" : "PENDING",
-      };
-
-      /* ===== CASH BOOKING ===== */
+      /* ===== CASH ===== */
       if (paymentMethod === "CASH") {
         const saveRes = await fetch(`${API_URL}/api/bookings/save`, {
           method: "POST",
           headers,
-          body: JSON.stringify(bookingPayload),
+          body: JSON.stringify({
+            bookingData: form,
+            roomId: room._id,
+            ratePerNight: rate,
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            nights,
+            subtotal,
+            gst: gstAmount,
+            amount: total,
+          }),
         });
-        if (!saveRes.ok) {
-          const errData = await saveRes.json();
-          throw new Error(errData.error || "Failed to save cash booking");
-        }
-        toast.success("Booking successful! See you at the hotel.");
-        setTimeout(() => navigate("/booking-success"), 1500);
+
+        if (!saveRes.ok) throw new Error("Booking save failed");
+
+        if (!token) localStorage.setItem("guestEmail", form.email);
+        sessionStorage.clear();
+
+        // ✅ Show toast and redirect
+       toast.success("Booking successful! Redirecting to home...", {
+                  autoClose: 2000,
+                          });
+
+                  setTimeout(() => {
+                   navigate("/");
+                }, 2100);
+
         return;
       }
 
-      /* ===== CARD PAYMENT ===== */
-      const amountInPaise = Math.round(total * 100);
+      /* ===== CARD ===== */
       const intentRes = await fetch(`${API_URL}/api/bookings/create-payment-intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: amountInPaise, bookingData: bookingPayload }),
+        body: JSON.stringify({ amount: total }),
       });
-      const { clientSecret } = await intentRes.json();
-      if (!clientSecret) throw new Error("Payment Intent creation failed");
 
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) throw new Error("Card information missing");
+      if (!intentRes.ok) throw new Error("Failed to create payment intent");
+
+      const { clientSecret } = await intentRes.json();
 
       const result = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
-          card: cardElement,
-          billing_details: { name: `${form.firstName} ${form.lastName}`, email: form.email },
+          card: elements.getElement(CardElement),
+          billing_details: {
+            name: `${form.firstName} ${form.lastName}`,
+            email: form.email,
+          },
         },
       });
 
-      if (result.error) throw new Error(result.error.message || "Payment failed");
-
-      bookingPayload.paymentIntentId = result.paymentIntent.id;
+      if (result.error) throw result.error;
 
       const saveRes = await fetch(`${API_URL}/api/bookings/save`, {
         method: "POST",
         headers,
-        body: JSON.stringify(bookingPayload),
+        body: JSON.stringify({
+          bookingData: form,
+          paymentIntentId: result.paymentIntent.id,
+          roomId: room._id,
+          ratePerNight: rate,
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          nights,
+          subtotal,
+          gst: gstAmount,
+          amount: total,
+        }),
       });
 
-      if (!saveRes.ok) {
-        const errData = await saveRes.json();
-        throw new Error(errData.error || "Failed to save card booking");
-      }
+      if (!saveRes.ok) throw new Error("Booking save failed");
 
-      toast.success("Payment successful! Your booking is confirmed.");
-      setTimeout(() => navigate("/booking-success"), 1500);
+      const verifyRes = await fetch(`${API_URL}/api/bookings/verify-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentIntentId: result.paymentIntent.id,
+        }),
+      });
+
+      if (!verifyRes.ok) throw new Error("Payment verification failed");
+
+      if (!token) localStorage.setItem("guestEmail", form.email);
+      sessionStorage.clear();
+
+      // ✅ Show toast and redirect
+     toast.success("Booking successful! Redirecting to home...", {
+  autoClose: 2000,
+});
+
+setTimeout(() => {
+  navigate("/");
+}, 2100);
+
     } catch (err) {
       console.error(err);
       setError(err.message || "Booking failed");
@@ -257,6 +279,7 @@ export default function BookingForm() {
                 <FloatingInput name="lastName" label="Last Name" value={form.lastName} onChange={handleChange} />
               </div>
 
+
               <div className="grid md:grid-cols-3 gap-4 mt-6">
                 <FloatingInput name="email" label="Email" value={form.email} onChange={handleChange} />
                 <FloatingInput name="phone" label="Mobile" value={form.phone} onChange={handleChange} />
@@ -300,13 +323,11 @@ export default function BookingForm() {
                   <p className="text-sm text-slate-500">
                     {checkInDate?.toDateString()} → {checkOutDate?.toDateString()}
                   </p>
-
                   <div className="mt-4 space-y-2 text-sm">
                     <div className="flex justify-between"><span>₹{rate} × {nights}</span><span>₹{subtotal}</span></div>
                     <div className="flex justify-between"><span>GST (18%)</span><span>₹{gstAmount}</span></div>
                     <div className="border-t pt-3 flex justify-between font-black text-lg"><span>Total</span><span>₹{total}</span></div>
                   </div>
-
                   <div className="mt-4 flex items-center gap-2 text-emerald-600 text-xs">
                     <ShieldCheck size={14} /> Secure payment
                   </div>

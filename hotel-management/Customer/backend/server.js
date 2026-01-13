@@ -23,8 +23,25 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 4️⃣ Passport initialization
+const session = require('express-session');
+const { MongoStore } = require('connect-mongo');
+
+// 4️⃣ Session & Passport initialization
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'change_this_secret',
+  resave: false,
+  saveUninitialized: false,
+  store: new MongoStore({ mongoUrl: process.env.MONGO_URI }),
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  }
+}));
+
 app.use(passport.initialize());
+app.use(passport.session());
 
 // 5️⃣ Debug Google OAuth env variables (optional)
 console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
@@ -39,7 +56,36 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // 8️⃣ MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB connected"))
+  .then(async () => {
+    console.log("✅ MongoDB connected");
+    // Ensure rooms have availableRooms initialized
+    try {
+      const RoomListing = require('./models/RoomListing');
+      const rooms = await RoomListing.find({});
+      for (const r of rooms) {
+        try {
+          if (typeof r.totalRooms !== 'number') {
+            console.warn(`Room ${r._id} missing totalRooms — skipping availableRooms init`);
+            continue;
+          }
+
+          // compute a desired availableRooms value and clamp into [0, totalRooms]
+          let desiredAvailable = (typeof r.availableRooms === 'number') ? r.availableRooms : r.totalRooms;
+          if (desiredAvailable < 0 || desiredAvailable > r.totalRooms) desiredAvailable = r.totalRooms;
+
+          if (typeof r.availableRooms !== 'number' || r.availableRooms !== desiredAvailable) {
+            r.availableRooms = desiredAvailable;
+            await r.save();
+          }
+        } catch (innerErr) {
+          console.warn(`Skipping room ${r._id} due to save error: ${innerErr.message}`);
+        }
+      }
+      console.log('✅ Room availability initialized');
+    } catch (e) {
+      console.error('Failed initializing room availability', e.message);
+    }
+  })
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
 // 9️⃣ Routes
@@ -48,6 +94,7 @@ app.use("/api/rooms", require("./routes/room"));
 app.use("/api/admin/rooms", require("./routes/adminRooms"));
 app.use("/api/staff", require("./routes/staffDashboard"));
 app.use("/api/staff/auth", require("./routes/staffAuth"));
+app.use("/api/staff/tasks", require("./routes/staffTasks"));
 app.use("/api/admin/staff", require("./routes/adminStaff"));
 app.use("/api/admin/users", require("./routes/adminUsers"));
 app.use("/api/admin/bookings", require("./routes/adminBookings"));

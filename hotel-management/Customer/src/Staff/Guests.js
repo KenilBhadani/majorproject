@@ -11,6 +11,8 @@ import {
   UserPlus
 } from 'lucide-react';
 
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const Guests = () => {
   const [guests, setGuests] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,13 +20,30 @@ const Guests = () => {
   useEffect(() => {
     const fetchGuests = async () => {
       try {
-        const res = await fetch('/api/staff/guests', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        const res = await fetch(`${API}/api/staff/panel`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
         });
-        const data = await res.json();
-        setGuests(data);
+
+        // Read raw text and try to parse JSON. Defensive in case server returns an error object.
+        const text = await res.text();
+        try {
+          const data = text ? JSON.parse(text) : {};
+          if (Array.isArray(data.guests)) {
+            setGuests(data.guests);
+          } else if (Array.isArray(data)) {
+            // backward compatibility: if endpoint returned array directly
+            setGuests(data);
+          } else {
+            console.warn('Unexpected guests payload', data);
+            setGuests([]);
+          }
+        } catch (parseErr) {
+          console.error('Failed to parse panel response', text);
+          setGuests([]);
+        }
       } catch (err) {
-        console.error("Failed to load guests", err);
+        console.error('Failed to load guests', err);
+        setGuests([]);
       }
     };
     fetchGuests();
@@ -34,6 +53,12 @@ const Guests = () => {
   const filteredGuests = guests.filter(g => 
     g.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Authorization guard: show message if staff role is not allowed
+  const user = JSON.parse(localStorage.getItem('staffUser') || 'null') || { role: '' };
+  if (!['Receptionist','Manager'].includes(user.role)) {
+    return <div className="p-10 text-center">You are not authorized to view this page.</div>;
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">

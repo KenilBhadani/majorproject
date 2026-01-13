@@ -15,7 +15,7 @@ function ManageRoom() {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
 
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
   const didFetch = useRef(false);
 
   // ✅ Form state matches RoomListing.js schema
@@ -26,7 +26,8 @@ function ManageRoom() {
     size: "",
     capacity: "",
     bedType: "",
-    availableRooms: "",
+    totalRooms: "",
+    perFloor: "",
     amenities: "",
     planName: "",
     inclusions: "",
@@ -67,6 +68,7 @@ function ManageRoom() {
       setError("");
       
       const res = await fetch(`${API}/api/admin/rooms`, {
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -142,7 +144,7 @@ function ManageRoom() {
       size: room.size,
       capacity: room.capacity,
       bedType: room.bedType,
-      availableRooms: room.availableRooms,
+      totalRooms: room.totalRooms,
       amenities: room.amenities?.join(", ") || "",
       planName: room.rates?.planName || "",
       inclusions: room.rates?.inclusions?.join(", ") || "",
@@ -168,7 +170,7 @@ function ManageRoom() {
       size: "",
       capacity: "",
       bedType: "",
-      availableRooms: "",
+      totalRooms: "",
       amenities: "",
       planName: "",
       inclusions: "",
@@ -193,13 +195,16 @@ function ManageRoom() {
       fd.append("size", form.size);
       fd.append("capacity", form.capacity);
       fd.append("bedType", form.bedType);
-      fd.append("availableRooms", form.availableRooms);
+      fd.append("totalRooms", form.totalRooms);
       fd.append("amenities", form.amenities);
       fd.append("planName", form.planName);
       fd.append("inclusions", form.inclusions);
       fd.append("depositPolicy", form.depositPolicy);
       fd.append("standardRate", form.standardRate);
       fd.append("currency", form.currency);
+
+      // include optional rooms-per-floor
+      if (form.perFloor) fd.append('perFloor', form.perFloor);
 
       // validate total images count
       const totalImages = (form.images ? form.images.length : 0) + imageFiles.length;
@@ -220,6 +225,7 @@ function ManageRoom() {
 
       const res = await fetch(url, {
         method,
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`
         },
@@ -248,6 +254,7 @@ function ManageRoom() {
     try {
       const res = await fetch(`${API}/api/admin/rooms/${id}`, {
         method: "DELETE",
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -278,6 +285,7 @@ function ManageRoom() {
     try {
       const res = await fetch(`${API}/api/admin/rooms/${editingId}/images`, {
         method: "DELETE",
+        credentials: 'include',
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -430,6 +438,7 @@ function ManageRoom() {
                 <tr>
                   <th>Image</th>
                   <th>Title</th>
+                  <th>Room Nos.</th>
                   <th>Size</th>
                   <th>Capacity</th>
                   <th>Price</th>
@@ -449,6 +458,7 @@ function ManageRoom() {
                       )}
                     </td>
                     <td>{highlight(room.title || "Untitled Room", query)}</td>
+                    <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(room.roomNumbers || []).map(r => r.number).join(', ') || '—'}</td>
                     <td>{room.size ? `${room.size} m²` : "N/A"}</td>
                     <td>{room.capacity ? `${room.capacity} Guests` : "N/A"}</td>
                     <td>₹{room.pricing?.standardRate || room.standardRate || "0"}</td>
@@ -520,8 +530,12 @@ function ManageRoom() {
                         </div>
 
                         <div className="form-group">
-                          <label>Available Rooms</label>
-                          <input type="number" name="availableRooms" value={form.availableRooms} onChange={handleChange} required />
+                          <label>Total Rooms</label>
+                          <input type="number" name="totalRooms" value={form.totalRooms} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                          <label>Rooms per floor (optional)</label>
+                          <input type="number" name="perFloor" min={1} placeholder="default 2" onChange={handleChange} />
                         </div>
                       </div>
 

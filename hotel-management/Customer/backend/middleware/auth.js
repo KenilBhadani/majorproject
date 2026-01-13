@@ -2,6 +2,20 @@
 const jwt = require("jsonwebtoken");
 
 module.exports = function (req, res, next) {
+  // Passport or session based user already present
+  if (req.user && (req.user._id || req.user.id)) {
+    const id = req.user._id ? req.user._id : req.user.id;
+    req.user = { userId: id.toString(), role: req.user.role, id: id.toString() };
+    return next();
+  }
+
+  // Session-based fallback
+  if (req.session && req.session.user) {
+    const s = req.session.user;
+    req.user = { userId: s.id.toString(), role: s.role, id: s.id.toString() };
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Unauthorized" });

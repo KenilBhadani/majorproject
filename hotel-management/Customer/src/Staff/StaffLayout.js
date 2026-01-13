@@ -10,22 +10,33 @@ const StaffLayout = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Get dynamic user data from localStorage
-  const user = JSON.parse(localStorage.getItem('user')) || { name: 'Staff Member', role: 'Staff' };
+  // Get dynamic user data from localStorage (support new key `staffUser` and fallback to old `user`)
+  const user = JSON.parse(localStorage.getItem('staffUser') || localStorage.getItem('user') || 'null') || { name: 'Staff Member', role: 'Staff' };
 
-  const handleLogout = () => {
-    localStorage.clear();
+  const handleLogout = async () => {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/logout`, { credentials: 'include' });
+    } catch (e) {
+      // ignore
+    }
+    // Only clear staff related keys to avoid logging out site-wide apps unintentionally
+    localStorage.removeItem('staffToken');
+    localStorage.removeItem('staffUser');
     navigate('/');
   };
 
-  const menuItems = [
-    { path: '/staff/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-    { path: '/staff/rooms', name: 'Room Status', icon: <BedDouble size={20} /> },
-    { path: '/staff/bookings', name: 'Bookings', icon: <CalendarCheck size={20} /> },
-    { path: '/staff/guests', name: 'Guests', icon: <Users size={20} /> },
-    { path: '/staff/tasks', name: 'Tasks', icon: <ClipboardList size={20} /> },
-    { path: '/staff/reports', name: 'Reports', icon: <BarChart3 size={20} /> },
+  // Define all possible menu items and attach allowed roles
+  const allMenuItems = [
+    { path: '/staff/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> , roles: ['Housekeeping','Receptionist','Manager']},
+    { path: '/staff/rooms', name: 'Room Status', icon: <BedDouble size={20} />, roles: ['Housekeeping','Manager'] },
+    { path: '/staff/bookings', name: 'Bookings', icon: <CalendarCheck size={20} />, roles: ['Receptionist','Manager'] },
+    { path: '/staff/guests', name: 'Guests', icon: <Users size={20} />, roles: ['Receptionist','Manager'] },
+    { path: '/staff/tasks', name: 'Tasks', icon: <ClipboardList size={20} />, roles: ['Housekeeping','Manager'] },
+    { path: '/staff/reports', name: 'Reports', icon: <BarChart3 size={20} />, roles: ['Manager'] },
   ];
+
+  // Filter menu based on the logged-in staff role
+  const menuItems = allMenuItems.filter(item => !item.roles || item.roles.includes(user.role));
 
   const getPageTitle = () => {
     const current = menuItems.find(item => item.path === location.pathname);

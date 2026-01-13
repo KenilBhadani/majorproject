@@ -8,13 +8,13 @@ import { loadStripe } from "@stripe/stripe-js";
 import Register from "./comp/Registration";
 import Login from "./comp/Login";
 import SLogin from "./Staff/Slogin";
-import OAuthSuccess from "./comp/OAuthSuccess"; // Page to handle Google login success
+import OAuthSuccess from "./comp/OAuthSuccess";
 import ResetPassword from "./comp/ResetPassword";
 
 // ===== BOOKING =====
 import BookingForm from "./comp/Bookingcus";
 import RoomBooking from "./comp/roombooking";
-import Mybooking from "./comp/Mybookingpage"; // user's My Bookings page
+import Mybooking from "./comp/Mybookingpage";
 
 // ===== LANDING =====
 import Herosection from "./comp/index";
@@ -65,10 +65,11 @@ const AdminRoute = ({ children }) => {
 };
 
 const StaffRoute = ({ children }) => {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user"));
+  const token = localStorage.getItem("staffToken");
+  const user = JSON.parse(localStorage.getItem("staffUser") || 'null');
 
-  if (!token || user?.role !== "staff") {
+  // Accept any authenticated staff role (Housekeeping / Receptionist / Manager)
+  if (!token || !user?.role) {
     return <Navigate to="/login/staff" replace />;
   }
   return children;
@@ -79,26 +80,80 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Handle Google OAuth login
   useEffect(() => {
-    // Handle Google login token from URL
     const query = new URLSearchParams(location.search);
     const token = query.get("token");
 
     if (token) {
       localStorage.setItem("token", token);
-      // Save placeholder user; ideally fetch real user data from backend
       localStorage.setItem(
         "user",
         JSON.stringify({ name: "Google User", role: "user" })
       );
-      // Remove token from URL to clean the address bar
-      navigate(location.pathname, { replace: true });
+
+      navigate("/", { replace: true });
     }
   }, [location, navigate]);
 
+  // Restore server-side session (if present) on initial load
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/me`, { credentials: 'include' });
+        if (res.ok) {
+          const user = await res.json();
+          if (user.role === 'admin') {
+            localStorage.setItem('adminUser', JSON.stringify(user));
+            localStorage.setItem('adminRole', user.role);
+            if (!localStorage.getItem('adminToken')) localStorage.setItem('adminToken', 'session');
+          } else {
+            localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('role', user.role);
+            if (!localStorage.getItem('token')) localStorage.setItem('token', 'session');
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // staff session restore
+      try {
+        const res2 = await fetch(`${process.env.REACT_APP_API_URL}/api/staff/auth/me`, { credentials: 'include' });
+        if (res2.ok) {
+          const staff = await res2.json();
+          localStorage.setItem('staffUser', JSON.stringify(staff));
+          if (!localStorage.getItem('staffToken')) localStorage.setItem('staffToken', 'session');
+        }
+      } catch (e) {}
+    })();
+  }, []);
+
+// ===== PROTECTED ROUTES =====
+const AdminRoute = ({ children }) => {
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user"));
+
+  if ((!token && !user) || user?.role !== "admin") {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
+const StaffRoute = ({ children }) => {
+  const token = localStorage.getItem("staffToken");
+  const user = JSON.parse(localStorage.getItem("staffUser") || 'null');
+
+  // Accept any authenticated staff role (Housekeeping / Receptionist / Manager)
+  if ((!token && !user) || !user?.role) {
+    return <Navigate to="/login/staff" replace />;
+  }
+  return children;
+};
+
   return (
     <Routes>
-      {/* ===== PUBLIC LANDING PAGE ===== */}
+      {/* ===== PUBLIC ===== */}
       <Route
         path="/"
         element={
@@ -137,12 +192,9 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/login/staff" element={<SLogin />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-
-
-      {/* ===== GOOGLE OAUTH SUCCESS ===== */}
       <Route path="/oauth-success" element={<OAuthSuccess />} />
 
-      {/* ===== ADMIN ROUTES ===== */}
+      {/* ===== ADMIN ===== */}
       <Route
         path="/admin"
         element={
@@ -160,7 +212,7 @@ function App() {
         <Route path="manage-staff" element={<ManageStaff />} />
       </Route>
 
-      {/* ===== STAFF ROUTES ===== */}
+      {/* ===== STAFF ===== */}
       <Route
         path="/staff"
         element={
@@ -171,6 +223,7 @@ function App() {
       >
         <Route index element={<StaffDashboard />} />
         <Route path="dashboard" element={<StaffDashboard />} />
+        <Route path="panel" element={<StaffDashboard />} />
         <Route path="bookings" element={<Bookings />} />
         <Route path="guests" element={<Guests />} />
         <Route path="rooms" element={<RoomStatus />} />

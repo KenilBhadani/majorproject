@@ -19,7 +19,7 @@ const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function PaymentReports() {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
 
   const [month, setMonth] = useState(
     new Date().toISOString().slice(0, 7)
@@ -43,6 +43,7 @@ function PaymentReports() {
       const res = await fetch(
         `${API}/api/admin/payments/summary?month=${month}`,
         {
+          credentials: 'include',
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -65,6 +66,7 @@ function PaymentReports() {
       const res = await fetch(
         `${API}/api/admin/payments/status-distribution?month=${month}&by=${distributionBy}`,
         {
+          credentials: 'include',
           headers: { Authorization: `Bearer ${token}` }
         }
       );
@@ -148,7 +150,7 @@ function PaymentReports() {
   /* ================= VERIFY HANDLER ================= */
   async function handleVerify(id) {
     try {
-      const res = await fetch(`${API}/api/admin/payments/verify/${id}`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API}/api/admin/payments/verify/${id}`, { method: 'PUT', credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Verify failed');
       alert('Verification completed');
       // refresh data
@@ -162,8 +164,12 @@ function PaymentReports() {
   }
   /* ================= LOGOUT ================= */
 
-  function handleLogout() {
-    localStorage.removeItem("token");
+  async function handleLogout() {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/logout`, { credentials: 'include' });
+    } catch (e) {}
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminUser");
     navigate("/login");
   }
 

@@ -5,8 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
-  Info,
-  ShieldCheck,
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -25,17 +23,22 @@ const RoomCard = ({ room, onSelect, checkIn, checkOut }) => {
     roomType,
     capacity,
     bedType,
-    amenities,
     description,
     availableRooms,
   } = room;
 
-  const isAvailable = availableRooms > 0;
+  /* ================= CORRECT AVAILABILITY LOGIC ================= */
   const datesSelected = Boolean(checkIn && checkOut);
 
-  /* =========================
-     IMAGE HELPERS
-  ========================= */
+  // ✅ Sold out ONLY when dates are selected
+  const isSoldOut =
+    datesSelected && typeof availableRooms === "number"
+      ? availableRooms <= 0
+      : false;
+
+  const isAvailable = !isSoldOut;
+
+  /* ================= IMAGE HELPERS ================= */
   const getImageUrl = (imagePath) => {
     if (!imagePath)
       return "https://via.placeholder.com/400x300?text=No+Image";
@@ -58,12 +61,15 @@ const RoomCard = ({ room, onSelect, checkIn, checkOut }) => {
     );
   };
 
-  /* =========================
-     HANDLE SELECT ROOM
-  ========================= */
+  /* ================= HANDLE SELECT ================= */
   const handleSelectRoom = () => {
     if (!datesSelected) {
-      toast.error("Please select check-in and check-out dates first");
+      toast.info("Please select check-in and check-out dates first");
+      return;
+    }
+
+    if (isSoldOut) {
+      toast.error("No rooms available for selected dates");
       return;
     }
 
@@ -72,11 +78,12 @@ const RoomCard = ({ room, onSelect, checkIn, checkOut }) => {
       return;
     }
 
-    onSelect(room); // ✅ Redirect works now
+    onSelect(room);
   };
 
   return (
     <div className="flex flex-col md:flex-row bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-200 mb-6 group w-full max-w-5xl mx-auto md:h-[340px] transition-all hover:shadow-xl hover:border-amber-200">
+
       {/* ================= IMAGE ================= */}
       <div className="w-full md:w-[380px] h-[240px] md:h-full relative bg-slate-100 overflow-hidden border-r">
         <img
@@ -102,14 +109,23 @@ const RoomCard = ({ room, onSelect, checkIn, checkOut }) => {
           </>
         )}
 
+        {/* ================= BADGE ================= */}
         <div className="absolute top-3 left-3">
-          {isAvailable ? (
-            <span className="bg-emerald-600 text-white text-[11px] font-black px-3 py-1 rounded-full">
-              {availableRooms} Rooms Left
+          {!datesSelected && (
+            <span className="bg-slate-600 text-white text-[11px] font-black px-3 py-1 rounded-full">
+              Select Dates
             </span>
-          ) : (
+          )}
+
+          {datesSelected && isSoldOut && (
             <span className="bg-red-600 text-white text-[11px] font-black px-3 py-1 rounded-full">
               Sold Out
+            </span>
+          )}
+
+          {datesSelected && !isSoldOut && (
+            <span className="bg-emerald-600 text-white text-[11px] font-black px-3 py-1 rounded-full">
+              {availableRooms} Rooms Left
             </span>
           )}
         </div>
@@ -150,7 +166,7 @@ const RoomCard = ({ room, onSelect, checkIn, checkOut }) => {
           <div className="flex gap-4">
             <div className="flex flex-col items-center">
               <Users size={16} />
-              <span className="text-xs font-bold">{capacity} Guest</span>
+              <span className="text-xs font-bold">{capacity} Guests</span>
             </div>
             <div className="flex flex-col items-center border-l pl-4">
               <BedDouble size={16} />
@@ -160,20 +176,20 @@ const RoomCard = ({ room, onSelect, checkIn, checkOut }) => {
 
           {/* ================= BUTTON ================= */}
           <button
+            type="button"
             onClick={handleSelectRoom}
-            disabled={!isAvailable || !datesSelected}
             className={`px-8 py-3 rounded-2xl font-bold transition-all
               ${
-                isAvailable && datesSelected
-                  ? "bg-slate-900 hover:bg-amber-600 text-white"
-                  : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                isSoldOut
+                  ? "bg-slate-300 text-slate-600 cursor-not-allowed"
+                  : "bg-slate-900 hover:bg-amber-600 text-white"
               }`}
           >
             {!datesSelected
               ? "Select Dates First"
-              : isAvailable
-              ? "Select Room"
-              : "Unavailable"}
+              : isSoldOut
+              ? "Unavailable"
+              : "Select Room"}
           </button>
         </div>
       </div>

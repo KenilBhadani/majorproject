@@ -23,23 +23,27 @@ export default function RoomBooking() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [restoredInfo, setRestoredInfo] = useState(null);
+  const [needsDates, setNeedsDates] = useState(false);
 
   const API_URL = "http://localhost:5000";
 
-  // Fetch rooms
-  const fetchAvailableRooms = useCallback(async () => {
+  // ✅ Fetch rooms (ALL rooms or AVAILABLE rooms)
+  const fetchRooms = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      let url = `${API_URL}/api/rooms/available`;
+      let url;
 
-      // Only add query if at least one search param is filled
-      const hasQuery =
-        searchParams.checkIn || searchParams.checkOut || searchParams.roomType || searchParams.guests;
-      if (hasQuery) {
+      // 🟡 No dates → ALL rooms
+      if (!searchParams.checkIn || !searchParams.checkOut) {
+        setNeedsDates(true);
+        url = `${API_URL}/api/rooms`;
+      } else {
+        // 🟢 Dates selected → AVAILABLE rooms
+        setNeedsDates(false);
         const query = new URLSearchParams(searchParams).toString();
-        url += `?${query}`;
+        url = `${API_URL}/api/rooms/available?${query}`;
       }
 
       const res = await fetch(url);
@@ -55,36 +59,38 @@ export default function RoomBooking() {
     }
   }, [searchParams]);
 
-  // Run on page load
+  // 🔄 Load rooms on mount & when search changes
   useEffect(() => {
-    fetchAvailableRooms();
+    fetchRooms();
 
-    // Restore previous search/room selection
+    // 🔁 Restore previous search / room
     if (location.state?.restored) {
       const payload = location.state.selectedRoom
         ? { type: "room", payload: location.state.selectedRoom }
         : { type: "search", payload: location.state.searchParams };
 
       setRestoredInfo(payload);
+
       toast.success(
         payload.type === "room"
           ? "Your selected room has been restored"
           : "Your previous search has been restored"
       );
+
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [fetchAvailableRooms, location.state, navigate]);
+  }, [fetchRooms, location.state, navigate]);
 
-  // Handle search click
+  // 🔍 Manual search
   const handleSearch = () => {
-    fetchAvailableRooms();
+    fetchRooms();
   };
 
-  // Handle selecting a room
+  // 🏨 Select room (extra safety check)
   const handleSelectRoom = (room) => {
     if (!searchParams.checkIn || !searchParams.checkOut) {
-      toast.error("Please select valid check-in and check-out dates before booking.");
-      return; // Prevent navigating
+      toast.info("Please select check-in and check-out dates first");
+      return;
     }
 
     navigate("/booking/form", {
@@ -92,6 +98,7 @@ export default function RoomBooking() {
     });
   };
 
+  // 🔄 Loading state
   if (loading) {
     return (
       <>
@@ -106,6 +113,7 @@ export default function RoomBooking() {
     );
   }
 
+  // ❌ Error state
   if (error) {
     return (
       <>
@@ -127,54 +135,74 @@ export default function RoomBooking() {
       <div className="bg-slate-50 min-h-screen py-12 px-6">
         <div className="max-w-5xl mx-auto">
 
-          {/* SEARCH BAR */}
+          {/* 🔍 SEARCH BAR */}
           <div className="bg-white p-6 rounded-2xl shadow mb-10">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
               <div>
-                <label className="text-xs font-bold text-slate-500">Check In</label>
+                <label className="text-xs font-bold text-slate-500">
+                  Check In
+                </label>
                 <input
                   type="date"
                   value={searchParams.checkIn}
                   onChange={(e) =>
-                    setSearchParams({ ...searchParams, checkIn: e.target.value })
+                    setSearchParams({
+                      ...searchParams,
+                      checkIn: e.target.value,
+                    })
                   }
                   className="w-full border rounded-lg p-2"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-500">Check Out</label>
+                <label className="text-xs font-bold text-slate-500">
+                  Check Out
+                </label>
                 <input
                   type="date"
                   value={searchParams.checkOut}
                   onChange={(e) =>
-                    setSearchParams({ ...searchParams, checkOut: e.target.value })
+                    setSearchParams({
+                      ...searchParams,
+                      checkOut: e.target.value,
+                    })
                   }
                   className="w-full border rounded-lg p-2"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-500">Guests</label>
+                <label className="text-xs font-bold text-slate-500">
+                  Guests
+                </label>
                 <input
                   type="number"
                   min="1"
                   value={searchParams.guests}
                   onChange={(e) =>
-                    setSearchParams({ ...searchParams, guests: e.target.value })
+                    setSearchParams({
+                      ...searchParams,
+                      guests: e.target.value,
+                    })
                   }
                   className="w-full border rounded-lg p-2"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-500">Room Type</label>
+                <label className="text-xs font-bold text-slate-500">
+                  Room Type
+                </label>
                 <input
                   type="text"
                   placeholder="Optional"
                   value={searchParams.roomType}
                   onChange={(e) =>
-                    setSearchParams({ ...searchParams, roomType: e.target.value })
+                    setSearchParams({
+                      ...searchParams,
+                      roomType: e.target.value,
+                    })
                   }
                   className="w-full border rounded-lg p-2"
                 />
@@ -189,12 +217,14 @@ export default function RoomBooking() {
             </div>
           </div>
 
-          {/* RESTORED INFO */}
+          {/* 🔔 RESTORED INFO */}
           {restoredInfo && (
             <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded mb-6 flex justify-between items-center">
               <div>
                 <strong className="block text-amber-900">
-                  {restoredInfo.type === "room" ? "Room selection restored" : "Search restored"}
+                  {restoredInfo.type === "room"
+                    ? "Room selection restored"
+                    : "Search restored"}
                 </strong>
                 <p className="text-sm text-amber-700">
                   {restoredInfo.type === "room"
@@ -202,40 +232,16 @@ export default function RoomBooking() {
                     : "We restored your previous search criteria."}
                 </p>
               </div>
-              <div className="flex gap-2">
-                {restoredInfo.type === "room" ? (
-                  <button
-                    className="bg-amber-700 text-white px-4 py-2 rounded"
-                    onClick={() =>
-                      navigate("/booking/form", {
-                        state: { room: restoredInfo.payload, searchParams },
-                      })
-                    }
-                  >
-                    Continue
-                  </button>
-                ) : (
-                  <button
-                    className="bg-amber-700 text-white px-4 py-2 rounded"
-                    onClick={() => {
-                      fetchAvailableRooms();
-                      setRestoredInfo(null);
-                    }}
-                  >
-                    View results
-                  </button>
-                )}
-                <button
-                  className="border border-amber-700 text-amber-700 px-3 py-2 rounded"
-                  onClick={() => setRestoredInfo(null)}
-                >
-                  Dismiss
-                </button>
-              </div>
+              <button
+                className="border border-amber-700 text-amber-700 px-3 py-2 rounded"
+                onClick={() => setRestoredInfo(null)}
+              >
+                Dismiss
+              </button>
             </div>
           )}
 
-          {/* ROOM LIST HEADER */}
+          {/* 🏨 HEADER */}
           <header className="mb-8">
             <div className="flex items-center gap-2 text-amber-600 mb-2">
               <LayoutGrid size={20} />
@@ -247,11 +253,15 @@ export default function RoomBooking() {
               Select Your Space
             </h2>
             <p className="text-slate-500 mt-2 font-medium">
-              Showing {rooms.length} available room{rooms.length !== 1 && "s"}
+              {needsDates
+                ? `Showing ${rooms.length} rooms`
+                : `Showing ${rooms.length} available room${
+                    rooms.length !== 1 && "s"
+                  }`}
             </p>
           </header>
 
-          {/* ROOM LIST */}
+          {/* 🧱 ROOM LIST */}
           <div className="flex flex-col gap-6">
             {rooms.length === 0 ? (
               <div className="text-center py-24 bg-white rounded-2xl border border-dashed">
@@ -264,7 +274,7 @@ export default function RoomBooking() {
                 <RoomCard
                   key={room._id}
                   room={room}
-                  onSelect={handleSelectRoom} // Show alert if dates not selected
+                  onSelect={handleSelectRoom}
                   checkIn={searchParams.checkIn}
                   checkOut={searchParams.checkOut}
                 />

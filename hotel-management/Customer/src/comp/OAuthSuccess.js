@@ -10,20 +10,24 @@ export default function OAuthSuccess() {
     const token = params.get("token");
 
     if (token) {
-      // Save token
-      localStorage.setItem("token", token);
-
-      // Optional: fetch user info from backend
+      // Optional: fetch user info from backend (use credentials for session cookie if set)
       fetch(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
         .then((user) => {
-          localStorage.setItem("user", JSON.stringify(user));
-          localStorage.setItem("role", user.role);
-
-          // Redirect to home page
-          navigate("/", { replace: true });
+          if (user.role === 'admin') {
+            localStorage.setItem('adminToken', token);
+            localStorage.setItem('adminUser', JSON.stringify(user));
+            localStorage.setItem('adminRole', user.role);
+            navigate('/admin', { replace: true });
+          } else {
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('role', user.role);
+            navigate('/', { replace: true });
+          }
         })
         .catch(() => {
           // If token invalid, redirect to login

@@ -11,39 +11,79 @@ import {
   Plus
 } from 'lucide-react';
 
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const Tasks = () => {
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('All');
+
+  // Create Task modal state
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', priority: 'Medium', category: 'Housekeeping', assignedTo: '', location: '', dueDate: '', tags: '' });
+  const [staffList, setStaffList] = useState([]);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   useEffect(() => {
     fetchTasks();
   }, []);
 
+  // Fetch staff list when the create modal is opened
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const res = await fetch(`${API}/api/staff/tasks/staff`, { headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` } });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (data.staff || []);
+        setStaffList(list);
+
+        // If current user is housekeeping, auto-select them and disable assignment to others
+        const user = JSON.parse(localStorage.getItem('staffUser') || 'null') || {};
+        if (user.role === 'Housekeeping') {
+          setForm(f => ({ ...f, assignedTo: user.id }));
+        }
+      } catch (err) {
+        console.error('Failed to load staff list', err);
+      }
+    };
+    if (showCreate) fetchStaff();
+  }, [showCreate]);
+
   const fetchTasks = async () => {
     try {
-      const res = await fetch('/api/staff/tasks', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      const res = await fetch(`${API}/api/staff/tasks`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
       });
+      if (!res.ok) throw new Error('Failed to load tasks');
       const data = await res.json();
-      setTasks(data);
+      setTasks(Array.isArray(data.tasks) ? data.tasks : (Array.isArray(data) ? data : (data.tasks || [])));
     } catch (err) {
-      console.error("Error fetching tasks:", err);
+      console.error('Error fetching tasks:', err);
+      setTasks([]);
     }
   };
 
   const markComplete = async (taskId) => {
     try {
-      await fetch(`/api/staff/tasks/${taskId}/complete`, {
+      const res = await fetch(`${API}/api/staff/tasks/${taskId}/complete`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
       });
+      if (!res.ok) throw new Error('Failed to update task');
       fetchTasks(); 
     } catch (err) {
-      alert("Failed to update task");
+      alert(err.message || 'Failed to update task');
     }
   };
 
   const filteredTasks = tasks.filter(t => filter === 'All' || t.priority === filter);
+
+  // Authorization guard: allow only Housekeeping & Manager
+  const user = JSON.parse(localStorage.getItem('staffUser') || 'null') || { role: '' };
+  if (!['Housekeeping','Manager'].includes(user.role)) {
+    return <div className="p-10 text-center">You are not authorized to view this page.</div>;
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -60,9 +100,108 @@ const Tasks = () => {
           </div>
         </div>
 
-        <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
           <Plus size={18} /> Create Task
         </button>
+
+        {/* Create Task Modal */}
+        {showCreate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">Create Task</h3>
+                <button onClick={() => setShowCreate(false)} className="text-sm text-slate-500">Cancel</button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold">Title</label>
+                  <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full mt-1 p-2 border rounded-md" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold">Category</label>
+                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full mt-1 p-2 border rounded-md">
+                    <option>Housekeeping</option>
+                    <option>Maintenance</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold">Description</label>
+                  <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full mt-1 p-2 border rounded-md" rows={3} />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold">Priority</label>
+                  <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full mt-1 p-2 border rounded-md">
+                    <option>High</option>
+                    <option>Medium</option>
+                    <option>Low</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold">Assigned To</label>
+                  <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full mt-1 p-2 border rounded-md" disabled={user.role === 'Housekeeping'}>
+                    {user.role === 'Housekeeping' ? (
+                      <>
+                        <option value={user.id}>{user.name} — {user.role}</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="">(Unassigned)</option>
+                        {staffList.map(s => (
+                          <option key={s._id} value={s._id}>{s.name} — {s.role}</option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold">Room / Location</label>
+                  <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="w-full mt-1 p-2 border rounded-md" />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold">Due Date</label>
+                  <input value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} type="date" className="w-full mt-1 p-2 border rounded-md" />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold">Tags (comma separated)</label>
+                  <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} className="w-full mt-1 p-2 border rounded-md" />
+                </div>
+              </div>
+
+              {createError && <div className="text-sm text-red-600 mt-3">{createError}</div>}
+
+              <div className="flex items-center gap-3 justify-end mt-4">
+                <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-md border">Cancel</button>
+                <button disabled={creating} onClick={async () => {
+                  setCreateError('');
+                  if (!form.title.trim()) { setCreateError('Title is required'); return; }
+                  setCreating(true);
+                  try {
+                    const res = await fetch(`${API}/api/staff/tasks`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('staffToken')}` },
+                      body: JSON.stringify({ ...form, tags: form.tags ? form.tags.split(',').map(t=>t.trim()).filter(Boolean) : [] })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.message || 'Failed to create task');
+                    setShowCreate(false);
+                    setForm({ title: '', description: '', priority: 'Medium', category: 'Housekeeping', assignedTo: '', location: '', dueDate: '', tags: '' });
+                    fetchTasks();
+                  } catch (err) {
+                    setCreateError(err.message || 'Failed to create');
+                  } finally { setCreating(false); }
+                }} className="px-4 py-2 rounded-md bg-emerald-600 text-white font-bold">{creating ? 'Creating...' : 'Create Task'}</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Task Filter Tabs */}
@@ -109,19 +248,29 @@ const Tasks = () => {
                      <Clock size={12} className="text-slate-300" /> Room {task.location}
                    </p>
                    <p className="text-xs text-slate-400 flex items-center gap-1 italic">
-                     Assigned: {task.assignedTo}
+                     Assigned: {task.assignedTo ? (typeof task.assignedTo === 'string' ? task.assignedTo : (task.assignedTo.name || String(task.assignedTo._id || '—'))) : '—'}
                    </p>
                 </div>
               </div>
             </div>
 
-            <button 
-              onClick={() => markComplete(task._id)}
-              className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all w-full md:w-auto justify-center"
-            >
-              <CheckCircle2 size={18} />
-              Mark Complete
-            </button>
+            <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+              <div>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${task.status === 'Completed' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : task.status === 'In Progress' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                  {task.status}
+                </span>
+              </div>
+
+              {task.status !== 'Completed' && ((typeof task.assignedTo === 'object' ? String(task.assignedTo._id) : String(task.assignedTo)) === user.id || user.role === 'Manager') && (
+                <button 
+                  onClick={() => markComplete(task._id)}
+                  className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all w-full md:w-auto justify-center"
+                >
+                  <CheckCircle2 size={18} />
+                  Mark Complete
+                </button>
+              )}
+            </div>
           </div>
         ))}
 

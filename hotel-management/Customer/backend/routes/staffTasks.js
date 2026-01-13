@@ -1,0 +1,213 @@
+const express = require('express');
+const router = express.Router();
+const Task = require('../models/Task');
+const Staff = require('../models/Staff');
+const verifyStaff = require('../middleware/verifyStaff');
+const sendEmail = require('../utils/sendEmail');
+
+// GET /api/staff/tasks - list with filters
+router.get('/', verifyStaff, async (req, res) => {
+  try {
+    const { status, priority, assignedTo, search, page = 1, limit = 100 } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (priority) filter.priority = priority;
+    if (assignedTo) filter.assignedTo = assignedTo;
+    if (search) filter.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } }
+    ];
+
+    const tasks = await Task.find(filter)
+      .populate('assignedTo', 'name email role')
+      .sort({ priority: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const total = await Task.countDocuments(filter);
+
+    res.json({ tasks, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    console.error('TASKS LIST ERROR', err);
+    res.status(500).json({ message: 'Failed to list tasks' });
+  }
+});
+
+// GET staff list (lightweight) for assignment dropdown
+router.get('/staff', verifyStaff, async (_req, res) => {
+  try {
+    // return only roles that can be assigned tasks
+    const assignableRoles = ['Housekeeping','Maintenance','Receptionist','Manager'];
+    const staff = await Staff.find({ isActive: true, role: { $in: assignableRoles } }).select('name role email');
+    res.json(staff.map(s => ({ _id: s._id, name: s.name, role: s.role, email: s.email })));
+  } catch (err) {
+    console.error('GET STAFF ERROR', err);
+    res.status(500).json({ message: 'Failed to load staff list' });
+  }
+});
+
+// POST /api/staff/tasks - create
+router.post('/', verifyStaff, async (req, res) => {
+  try {
+    const { title, description, priority = 'Medium', assignedTo, category, location, dueDate, tags = [] } = req.body;
+    // validation
+    if (!title) return res.status(400).json({ message: 'Title required' });
+
+    // Permission: Receptionist and Manager can create tasks; Housekeeping can create personal tasks
+    if (!['Receptionist', 'Manager', 'Housekeeping'].includes(req.user.role)) return res.status(403).json({ message: 'Forbidden' });
+
+    const doc = new Task({ title, description, priority, category, location, tags, createdBy: req.user.id, status: 'Pending' });
+
+    if (dueDate) doc.dueDate = new Date(dueDate);
+
+    // Assignment logic
+    if (assignedTo) {
+      // Manager/Receptionist may assign anyone; Housekeeping may assign only to self
+      if (!['Manager', 'Receptionist'].includes(req.user.role)) {
+        if (req.user.role === 'Housekeeping' && String(assignedTo) === String(req.user.id)) {
+          doc.assignedTo = assignedTo;
+        } else {
+          return res.status(403).json({ message: 'Not allowed to assign' });
+        }
+      } else {
+        doc.assignedTo = assignedTo;
+      }
+    } else if (req.user.role === 'Housekeeping') {
+      // Housekeeping auto-assign to self
+      doc.assignedTo = req.user.id;
+    }
+
+    await doc.save();
+
+    // history
+    doc.history.push({ action: 'created', by: req.user.id, note: 'Task created' });
+    await doc.save();
+
+    // notify assignee via email if present
+    if (doc.assignedTo) {
+      try {
+        const staff = await Staff.findById(doc.assignedTo);
+        if (staff && staff.email) {
+          await sendEmail({
+            to: staff.email,
+            subject: `New Task Assigned: ${doc.title}`,
+            html: `<p>Hi ${staff.name},</p><p>You have been assigned a new task: <strong>${doc.title}</strong></p><p>${doc.description || ''}</p>`
+          });
+        }
+      } catch (e) {
+        console.error('Email notify failed', e.message);
+      }
+    }
+
+    // return populated task so frontend shows assignee details immediately
+    const saved = await Task.findById(doc._id).populate('assignedTo', 'name role email');
+    res.status(201).json({ task: saved });
+  } catch (err) {
+    console.error('CREATE TASK ERROR', err);
+    res.status(500).json({ message: 'Failed to create task' });
+  }
+});
+
+// PATCH /api/staff/tasks/:id - update fields or assign
+router.patch('/:id', verifyStaff, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const patch = req.body; // allowed: title, description, priority, assignedTo, status, dueDate, tags
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    // authorization: only Manager or the assigned staff can update status; Manager/Receptionist can edit details/assign
+    if (patch.assignedTo && !['Manager', 'Receptionist'].includes(req.user.role)) return res.status(403).json({ message: 'Not allowed to assign' });
+
+    if (patch.title) task.title = patch.title;
+    if (patch.description) task.description = patch.description;
+    if (patch.priority) task.priority = patch.priority;
+    if (patch.status) task.status = patch.status;
+    if (patch.dueDate) task.dueDate = new Date(patch.dueDate);
+    if (patch.tags) task.tags = patch.tags;
+
+    if (patch.assignedTo && String(task.assignedTo) !== String(patch.assignedTo)) {
+      const old = task.assignedTo;
+      task.assignedTo = patch.assignedTo;
+      task.history.push({ action: 'reassigned', by: req.user.id, note: `from:${old} to:${patch.assignedTo}` });
+
+      // notify new assignee
+      try {
+        const staff = await Staff.findById(task.assignedTo);
+        if (staff && staff.email) {
+          await sendEmail({
+            to: staff.email,
+            subject: `Task Assigned: ${task.title}`,
+            html: `<p>Hi ${staff.name},</p><p>You have been assigned a task: <strong>${task.title}</strong></p>`
+          });
+        }
+      } catch (e) {
+        console.error('Email notify failed', e.message);
+      }
+    }
+
+    task.history.push({ action: 'updated', by: req.user.id, note: JSON.stringify(patch) });
+
+    await task.save();
+    res.json({ task });
+  } catch (err) {
+    console.error('UPDATE TASK ERROR', err);
+    res.status(500).json({ message: 'Failed to update task' });
+  }
+});
+
+// PATCH /api/staff/tasks/:id/complete - mark complete
+router.patch('/:id/complete', verifyStaff, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    // Only assigned staff or Manager can complete
+    if (String(task.assignedTo) !== String(req.user.id) && req.user.role !== 'Manager') return res.status(403).json({ message: 'Not authorized' });
+
+    task.status = 'Completed';
+    task.completedAt = new Date();
+    task.history.push({ action: 'completed', by: req.user.id, note: 'Marked complete' });
+    await task.save();
+    res.json({ task });
+  } catch (err) {
+    console.error('COMPLETE TASK ERROR', err);
+    res.status(500).json({ message: 'Failed to complete task' });
+  }
+});
+
+// POST /api/staff/tasks/:id/comment - add comment
+router.post('/:id/comment', verifyStaff, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+    if (!comment) return res.status(400).json({ message: 'Comment required' });
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    task.comments = task.comments || [];
+    task.comments.push({ by: req.user.id, comment, createdAt: new Date() });
+    task.history.push({ action: 'comment', by: req.user.id, note: comment });
+    await task.save();
+    res.json({ task });
+  } catch (err) {
+    console.error('COMMENT TASK ERROR', err);
+    res.status(500).json({ message: 'Failed to add comment' });
+  }
+});
+
+// DELETE /api/staff/tasks/:id - manager only
+router.delete('/:id', verifyStaff, async (req, res) => {
+  try {
+    if (req.user.role !== 'Manager') return res.status(403).json({ message: 'Only Manager may delete' });
+    const { id } = req.params;
+    await Task.findByIdAndDelete(id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('DELETE TASK ERROR', err);
+    res.status(500).json({ message: 'Failed to delete task' });
+  }
+});
+
+module.exports = router;

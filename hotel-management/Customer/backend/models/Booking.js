@@ -7,6 +7,7 @@ const bookingSchema = new mongoose.Schema({
     required: true,
   },
 
+  // snapshot (optional)
   roomTitle: String,
   ratePerNight: Number,
 
@@ -36,6 +37,12 @@ const bookingSchema = new mongoose.Schema({
   },
 
   paymentIntentId: String,
+
+  paymentStatus: {
+    type: String,
+    enum: ["Paid", "Pending", "Cash"],
+    default: "Pending",
+  },
 
   userId: {
     type: mongoose.Schema.Types.ObjectId,

@@ -52,7 +52,7 @@ function buildTrendSeries(trends, days) {
 
 export function DashboardHome() {
   
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
 
   const months = getLastNMonths(12);
   const [selectedMonth, setSelectedMonth] = useState(months[0].key);
@@ -78,6 +78,7 @@ export function DashboardHome() {
         const res = await fetch(
           `${API}/api/admin/overview?month=${month}`,
           {
+            credentials: 'include',
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -105,6 +106,7 @@ export function DashboardHome() {
       const res = await fetch(
         `${API}/api/admin/recent-bookings?limit=6`,
         {
+          credentials: 'include',
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -127,7 +129,7 @@ export function DashboardHome() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/admin/stats`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API}/api/admin/stats`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to load stats');
       const d = await res.json();
       setStats(d);
@@ -140,7 +142,7 @@ export function DashboardHome() {
   const fetchTrends = useCallback(async (days = trendDays) => {
     try {
       setLoadingTrends(true);
-      const res = await fetch(`${API}/api/admin/trends?days=${days}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API}/api/admin/trends?days=${days}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { setTrends(null); return; }
       const d = await res.json();
       setTrends(d);
@@ -154,7 +156,7 @@ export function DashboardHome() {
 
   const fetchBookingStatus = useCallback(async (days = trendDays) => {
     try {
-      const res = await fetch(`${API}/api/admin/bookings/status-distribution?days=${days}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API}/api/admin/bookings/status-distribution?days=${days}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { setBookingDistribution(null); return; }
       const d = await res.json();
       setBookingDistribution(d);
@@ -348,7 +350,7 @@ export default function AdminLayout() {
       <aside className="sidebar">
         <h1>Admin Panel</h1>
 
-        <Link to="/admin" className="active">Dashboard</Link>
+        <Link to="/admin" >Dashboard</Link>
         <Link to="/admin/manage-room">Manage Room</Link>
         <Link to="/admin/manage-booking">Manage Bookings</Link>
         <Link to="/admin/manage-user">Manage User</Link>

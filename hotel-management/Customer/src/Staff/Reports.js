@@ -11,6 +11,8 @@ import {
   PieChart
 } from 'lucide-react';
 
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const Reports = () => {
   const [stats, setStats] = useState({ 
     totalRooms: 100, 
@@ -23,8 +25,8 @@ const Reports = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/staff/reports/daily', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        const res = await fetch(`${API}/api/staff/reports/daily`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
         });
         const data = await res.json();
         setStats(data);
@@ -38,6 +40,12 @@ const Reports = () => {
   const occupancyRate = stats.totalRooms > 0 
     ? ((stats.occupied / stats.totalRooms) * 100).toFixed(1) 
     : 0;
+
+  // Authorization guard: only Managers allowed
+  const user = JSON.parse(localStorage.getItem('staffUser') || 'null') || { role: '' };
+  if (user.role !== 'Manager') {
+    return <div className="p-10 text-center">You are not authorized to view this page.</div>;
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

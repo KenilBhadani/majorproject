@@ -15,7 +15,7 @@ function ManageBookings() {
   const [query, setQuery] = useState("");
   const listRef = useRef(null);
 
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
 
   useEffect(() => {
     if (!token) {
@@ -31,6 +31,7 @@ function ManageBookings() {
       setError("");
 
       const res = await fetch(`${API}/api/admin/bookings`, {
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -103,6 +104,7 @@ function ManageBookings() {
         `${API}/api/admin/bookings/${id}/${action}`,
         {
           method: "PUT",
+          credentials: 'include',
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -119,7 +121,10 @@ function ManageBookings() {
     }
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/logout`, { credentials: 'include' });
+    } catch (e) {}
     localStorage.removeItem("token");
     navigate("/login");
   }
@@ -241,11 +246,7 @@ function ManageBookings() {
                     <td>
                       {b.bookingStatus === "Upcoming" && (
                         <>
-                          <button
-                            onClick={() => updateStatus(b._id, "checkin")}
-                          >
-                            Check-in
-                          </button>
+                          {/* Check-in is handled by staff; admin can still cancel */}
                           <button
                             onClick={() => updateStatus(b._id, "cancel")}
                           >
@@ -254,14 +255,8 @@ function ManageBookings() {
                         </>
                       )}
 
-                      {b.bookingStatus === "Checked-in" && (
-                        <button
-                          onClick={() => updateStatus(b._id, "checkout")}
-                        >
-                          Check-out
-                        </button>
-                      )}
-                    </td>
+                      {/* Admins no longer perform check-out; handled by staff panel */}
+                    </td>"
                   </tr>
                 ))}
               </tbody>

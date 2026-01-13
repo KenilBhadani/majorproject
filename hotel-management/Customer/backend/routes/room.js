@@ -4,26 +4,42 @@ const RoomListing = require("../models/RoomListing");
 const Booking = require("../models/Booking");
 
 /* =========================
-   GET ALL ROOMS (UNCHANGED)
+   GET ALL ACTIVE ROOMS
+   /api/rooms
 ========================= */
 router.get("/", async (req, res) => {
   try {
     const rooms = await RoomListing.find({ status: "active" });
-    res.json(rooms);
+    res.json(Array.isArray(rooms) ? rooms : []);
   } catch (err) {
-    console.error(err);
-    res.status(500).json([]);
+    console.error("Get rooms error:", err);
+    res.json([]); // always array
   }
 });
 
 /* =========================
-   GET AVAILABLE ROOMS (UPDATED)
+   GET AVAILABLE ROOMS (DATE-BASED)
+   /api/rooms/available
 ========================= */
 router.get("/available", async (req, res) => {
   try {
     const { roomType, guests, checkIn, checkOut } = req.query;
 
-    // Frontend → DB mapping (UNCHANGED)
+    /* ---------- VALIDATION ---------- */
+    if (!checkIn || !checkOut) return res.json([]);
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    if (
+      isNaN(checkInDate.getTime()) ||
+      isNaN(checkOutDate.getTime()) ||
+      checkInDate >= checkOutDate
+    ) {
+      return res.json([]);
+    }
+
+    /* ---------- ROOM TYPE NORMALIZATION ---------- */
     const roomTypeMap = {
       single: "Single",
       double: "Double",
@@ -32,68 +48,68 @@ router.get("/available", async (req, res) => {
       family: "Family",
     };
 
-    const normalizedRoomType = roomTypeMap[roomType?.toLowerCase()];
+    const normalizedRoomType =
+      roomType && roomTypeMap[roomType.toLowerCase()];
 
-    let query = { status: "active" };
+    /* ---------- BASE ROOM QUERY ---------- */
+    const roomQuery = { status: "active" };
 
     if (normalizedRoomType) {
-      query.roomType = normalizedRoomType;
+      roomQuery.roomType = normalizedRoomType;
     }
 
     if (guests) {
-      query.capacity = { $gte: Number(guests) };
+      roomQuery.capacity = { $gte: Number(guests) };
     }
 
-    // ✅ UPDATE: projection added (NO LOGIC REMOVED)
-    const rooms = await RoomListing.find(
-      query,
+    const rooms = await RoomListing.find(roomQuery);
+    if (!rooms.length) return res.json([]);
+
+    /* ---------- FETCH OVERLAPPING BOOKINGS (ONCE) ---------- */
+    const overlappingBookings = await Booking.aggregate([
       {
-        title: 1,
-        description: 1,
-        roomType: 1,
-        images: 1,
-        amenities: 1,
-        pricing: 1,
-        availableRooms: 1,
-        status: 1,
-      }
-    );
+        $match: {
+          status: "Confirmed",
+          checkIn: { $lt: checkOutDate },
+          checkOut: { $gt: checkInDate },
+        },
+      },
+      {
+        $group: {
+          _id: "$roomId",
+          bookedCount: { $sum: 1 },
+        },
+      },
+    ]);
 
-    // ✅ SAME BEHAVIOR AS BEFORE
-    if (!checkIn || !checkOut) {
-      return res.json(
-        rooms.map(room => ({
+    /* ---------- MAP BOOKINGS ---------- */
+    const bookingMap = {};
+    overlappingBookings.forEach((b) => {
+      bookingMap[b._id.toString()] = b.bookedCount;
+    });
+
+    /* ---------- CALCULATE AVAILABILITY ---------- */
+    const availableRooms = rooms
+      .map((room) => {
+        // hard safety check
+        if (typeof room.totalRooms !== "number") return null;
+
+        const bookedCount = bookingMap[room._id.toString()] || 0;
+        const availableCount = room.totalRooms - bookedCount;
+
+        if (availableCount <= 0) return null;
+
+        return {
           ...room.toObject(),
-          availableCount: room.availableRooms, // added safely
-        }))
-      );
-    }
-
-    const availableRooms = [];
-
-    for (const room of rooms) {
-      // EXISTING LOGIC (UNCHANGED)
-      const overlappingBookings = await Booking.countDocuments({
-        roomType: room.roomType,
-        bookingStatus: { $in: ["Upcoming", "Checked-in"] },
-        checkIn: { $lt: new Date(checkOut) },
-        checkOut: { $gt: new Date(checkIn) },
-      });
-
-      const remaining = room.availableRooms - overlappingBookings;
-
-      if (remaining > 0) {
-        availableRooms.push({
-          ...room.toObject(),
-          availableCount: remaining, // ✅ added field
-        });
-      }
-    }
+          availableCount, // computed, frontend-only
+        };
+      })
+      .filter(Boolean);
 
     res.json(availableRooms);
   } catch (err) {
-    console.error(err);
-    res.status(500).json([]);
+    console.error("Available rooms error:", err);
+    res.json([]); // always array
   }
 });
 
