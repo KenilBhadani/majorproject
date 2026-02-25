@@ -29,6 +29,12 @@ const staffSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: [
+        "Admin", // changed from AdminStaff for consistency with frontend/auth logic if needed, but keeping both or mapping is safer. 
+        // Actually user input says "Admin", "Receptionist", "Housekeeping", "Maintenance".
+        // Existing verifyStaff middleware checks ["Housekeeping", "Receptionist", "Manager", "Admin", "admin"].
+        // Let's keep existing and add "Admin" just in case, or rely on "AdminStaff" if that's what's used.
+        // The user explicitly listed: Admin, Receptionist, Housekeeping, Maintenance.
+        "Admin", 
         "AdminStaff",
         "Receptionist",
         "Housekeeping",

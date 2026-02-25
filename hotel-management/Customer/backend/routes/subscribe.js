@@ -1,49 +1,83 @@
 const express = require("express");
 const router = express.Router();
 const sendEmail = require("../utils/sendEmail");
-const Subscriber = require("../models/Subscriber"); // 👈 ADD THIS
+const Subscriber = require("../models/Subscriber");
+const User = require("../models/User");
 
 router.post("/", async (req, res) => {
   try {
-    const { email } = req.body;
+    const {
+      email,
+      paymentMethod = "CARD",
+      membershipFee = 0,
+      paymentStatus = "PENDING",
+      paymentIntentId = "",
+    } = req.body;
 
     if (!email) {
       return res.status(400).json({ message: "Email required" });
     }
 
-    // 1️⃣ Check if already subscribed
-    const alreadySubscribed = await Subscriber.findOne({ email });
-    if (alreadySubscribed) {
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      return res.status(400).json({ message: "Please register first" });
+    }
+
+    const existing = await Subscriber.findOne({ email: normalizedEmail });
+    if (existing?.membershipActive) {
       return res.status(409).json({
         success: false,
         message: "Email already subscribed",
       });
     }
 
-    // 2️⃣ Save email to database
-    await Subscriber.create({ email });
+    const isPaid = paymentStatus === "PAID";
+    
+    // Set expiration to 1 year from now if paid
+    let expiresAt = null;
+    if (isPaid) {
+        const date = new Date();
+        date.setFullYear(date.getFullYear() + 1);
+        expiresAt = date;
+    }
 
-    console.log("Subscribed email saved:", email);
+    await Subscriber.findOneAndUpdate(
+      { email: normalizedEmail },
+      {
+        userId: user._id,
+        email: normalizedEmail,
+        paymentMethod: "CARD",
+        membershipFee: Number(membershipFee) || 0,
+        paymentStatus: isPaid ? "PAID" : "PENDING",
+        paymentIntentId: paymentIntentId || "",
+        membershipActive: isPaid,
+        expiresAt: expiresAt
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
-    // 3️⃣ Send welcome email
-    await sendEmail({
-      to: email,
-      subject: "Welcome to RoyalPark Privilege Club!",
-      html: `
-        <h2>Welcome to the Privilege Club 🎉</h2>
-        <p>Thank you for subscribing! You now have access to special member benefits.</p>
-        <p>Enjoy your stay at RoyalPark Hotel!</p>
-      `,
-    });
+    if (isPaid) {
+      await sendEmail({
+        to: normalizedEmail,
+        subject: "Welcome to RoyalPark Privilege Club!",
+        html: `
+          <h2>Welcome to the Privilege Club</h2>
+          <p>Your membership payment was successful.</p>
+          <p>You can now use member discounts on bookings.</p>
+        `,
+      });
+    }
 
     return res.status(201).json({
       success: true,
-      message: "Subscribed successfully. Welcome email sent!",
+      message: isPaid
+        ? "Subscribed successfully. Welcome email sent!"
+        : "Subscription created. Payment pending.",
     });
   } catch (err) {
     console.error("Subscription Error:", err);
 
-    // Duplicate email safety (MongoDB)
     if (err.code === 11000) {
       return res.status(409).json({
         success: false,
@@ -52,6 +86,29 @@ router.post("/", async (req, res) => {
     }
 
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/status", async (req, res) => {
+  try {
+    const email = String(req.query.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ active: false, message: "Email required" });
+    }
+
+    const member = await Subscriber.findOne({ email }).select(
+      "membershipActive paymentStatus membershipFee paymentMethod"
+    );
+
+    return res.json({
+      active: Boolean(member?.membershipActive),
+      paymentStatus: member?.paymentStatus || "NONE",
+      membershipFee: member?.membershipFee || 0,
+      paymentMethod: member?.paymentMethod || "",
+    });
+  } catch (err) {
+    console.error("Membership status error:", err);
+    return res.status(500).json({ active: false, message: "Server error" });
   }
 });
 

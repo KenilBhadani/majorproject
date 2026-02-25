@@ -1,64 +1,91 @@
 const mongoose = require("mongoose");
 
-const bookingSchema = new mongoose.Schema({
-  roomId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "RoomListing",
-    required: true,
+const bookingSchema = new mongoose.Schema(
+  {
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RoomListing",
+      required: true,
+    },
+
+    // snapshot
+    roomTitle: String,
+    ratePerNight: Number,
+
+    firstName: String,
+    lastName: String,
+    email: String,
+    phone: String,
+    gst: String,
+    requests: String,
+
+    nights: Number,
+    subtotal: Number,
+    discountPercent: {
+      type: Number,
+      default: 0,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
+    gstAmount: Number,
+
+    totalAmount: {
+      type: Number,
+      required: true,
+    },
+
+    checkIn: {
+      type: Date,
+      required: true,
+    },
+    checkOut: {
+      type: Date,
+      required: true,
+    },
+
+    paymentIntentId: String,
+
+    paymentStatus: {
+      type: String,
+      enum: ["Paid", "Pending", "Cash"],
+      default: "Pending",
+    },
+
+    bookingStatus: {
+      type: String,
+      enum: ["Pending", "Confirmed", "Checked-in", "Checked-out", "Cancelled"],
+      default: "Pending",
+    },
+
+    // Check-in/Check-out tracking
+    actualCheckIn: Date,
+    actualCheckOut: Date,
+
+    // Assigned room number during check-in
+    assignedRoomNumber: String,
+
+    // Assigned room instance during check-in
+    assignedRoomInstance: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RoomInstance",
+    },
+
+    // History of status changes
+    history: [{
+      action: String, // 'checkin', 'checkout', 'cancel', etc.
+      by: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
+      note: String,
+      createdAt: { type: Date, default: Date.now }
+    }],
+
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
-
-  // snapshot (optional)
-  roomTitle: String,
-  ratePerNight: Number,
-
-  firstName: String,
-  lastName: String,
-  email: String,
-  phone: String,
-  gst: String,
-  requests: String,
-
-  nights: Number,
-  subtotal: Number,
-  gstAmount: Number,
-
-  amount: {
-    type: Number,
-    required: true,
-  },
-
-  checkIn: {
-    type: Date,
-    required: true,
-  },
-  checkOut: {
-    type: Date,
-    required: true,
-  },
-
-  paymentIntentId: String,
-
-  paymentStatus: {
-    type: String,
-    enum: ["Paid", "Pending", "Cash"],
-    default: "Pending",
-  },
-
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
-
-  status: {
-    type: String,
-    enum: ["Confirmed", "Pending", "Cancelled"],
-    default: "Pending",
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("Booking", bookingSchema);

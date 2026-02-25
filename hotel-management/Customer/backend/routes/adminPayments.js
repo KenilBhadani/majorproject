@@ -5,81 +5,124 @@ const Stripe = require("stripe");
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const Booking = require("../models/Booking");
 
-// admin verification middleware
+/* =====================
+   ADMIN VERIFICATION
+===================== */
 function verifyAdmin(req, res, next) {
   try {
     const auth = req.headers.authorization;
     if (!auth) return res.status(401).json({ message: "Unauthorized" });
+
     const token = auth.replace("Bearer ", "");
     const data = jwt.verify(token, process.env.JWT_SECRET);
-    if (!data || data.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+
+    if (!data || data.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
     req.user = { id: data.userId, role: data.role };
     next();
   } catch (err) {
-    console.error("verifyAdmin error", err.message);
+    console.error("verifyAdmin error:", err.message);
     return res.status(401).json({ message: "Invalid token" });
   }
 }
 
-/* ================================
-   PAYMENT SUMMARY (MONTH AWARE)
-================================ */
-router.get("/summary", async (req, res) => {
+/* =====================
+   PAYMENT SUMMARY
+   GET /api/admin/payments/summary?month=YYYY-MM
+===================== */
+router.get("/summary", verifyAdmin, async (req, res) => {
   try {
-    const { month } = req.query; // YYYY-MM
-
-    if (!month) {
-      return res.status(400).json({ message: "Month required" });
-    }
+    const { month } = req.query;
+    if (!month) return res.status(400).json({ message: "Month required" });
 
     const [year, mon] = month.split("-").map(Number);
+    const start = new Date(year, mon - 1, 1, 0, 0, 0, 0);
+    const end = new Date(year, mon, 0, 23, 59, 59, 999);
 
-    const start = new Date(year, mon - 1, 1);
-    const end = new Date(year, mon, 0, 23, 59, 59);
+    const agg = await Booking.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          paid: {
+            $sum: {
+              $cond: [
+                { $in: ["$paymentStatus", ["Paid", "Cash"]] },
+                {
+                  $ifNull: [
+                    "$amount",
+                    { $ifNull: ["$totalAmount", 0] }
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          pending: {
+            $sum: {
+              $cond: [
+                { $eq: ["$paymentStatus", "Pending"] },
+                {
+                  $ifNull: [
+                    "$amount",
+                    { $ifNull: ["$totalAmount", 0] }
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          bookings: { $sum: 1 }
+        }
+      }
+    ]);
 
-    const bookings = await Booking.find({
-      createdAt: { $gte: start, $lte: end }
-    });
-
-    let totalRevenue = 0;
-    let paidAmount = 0;
-    let pendingAmount = 0;
-
-    bookings.forEach(b => {
-      // prefer `amount` (newer field), fall back to `totalAmount` for backwards compat
-      const amt = (b.amount != null) ? b.amount : (b.totalAmount || 0);
-      totalRevenue += amt;
-      if (b.paymentStatus === "Paid") paidAmount += amt;
-      if (b.paymentStatus === "Pending") pendingAmount += amt;
-    });
+    const result = agg[0] || { paid: 0, pending: 0, bookings: 0 };
 
     res.json({
-      totalRevenue,
-      paidAmount,
-      pendingAmount,
-      totalBookings: bookings.length
+      paid: result.paid,
+      pending: result.pending,
+      totalRevenue: result.paid + result.pending,
+      bookings: result.bookings
     });
   } catch (err) {
+    console.error("summary error:", err);
     res.status(500).json({ message: "Payment summary error" });
   }
 });
 
-/* ================================
-   PAYMENT TRANSACTIONS LIST
-================================ */
-router.get("/transactions", async (req, res) => {
+/* =====================
+   PAYMENT TRANSACTIONS
+   GET /api/admin/payments/transactions?month=YYYY-MM
+===================== */
+router.get("/transactions", verifyAdmin, async (req, res) => {
   try {
-    const docs = await Booking.find()
+    const { month } = req.query;
+    const query = {};
+
+    if (month) {
+      const [year, mon] = month.split("-").map(Number);
+      const start = new Date(year, mon - 1, 1, 0, 0, 0, 0);
+      const end = new Date(year, mon, 0, 23, 59, 59, 999);
+      query.createdAt = { $gte: start, $lte: end };
+    }
+
+    const docs = await Booking.find(query)
       .sort({ createdAt: -1 })
       .limit(50)
       .select("firstName lastName amount totalAmount paymentStatus bookingStatus createdAt");
 
-    // normalize field name to `totalAmount` expected by frontend
     const transactions = docs.map(d => ({
       _id: d._id,
       firstName: d.firstName,
       lastName: d.lastName,
-      totalAmount: (d.amount != null) ? d.amount : (d.totalAmount || 0),
+      totalAmount: d.amount ?? d.totalAmount ?? 0,
       paymentStatus: d.paymentStatus,
       bookingStatus: d.bookingStatus,
       createdAt: d.createdAt
@@ -87,114 +130,142 @@ router.get("/transactions", async (req, res) => {
 
     res.json(transactions);
   } catch (err) {
-    console.error(err);
+    console.error("transactions error:", err);
     res.status(500).json({ message: "Failed to load transactions" });
   }
 });
 
-/* ================================
+/* =====================
    PAYMENT STATUS DISTRIBUTION
    GET /api/admin/payments/status-distribution?month=YYYY-MM&by=amount|count
-================================ */
-router.get("/status-distribution", async (req, res) => {
+===================== */
+router.get("/status-distribution", verifyAdmin, async (req, res) => {
   try {
-    const { month, by = "amount" } = req.query; // by=amount|count
+    const { month, by = "amount" } = req.query;
+    const match = {};
 
-    let match = {};
     if (month) {
       const [year, mon] = month.split("-").map(Number);
-      const start = new Date(year, mon - 1, 1);
-      const end = new Date(year, mon, 0, 23, 59, 59);
+      const start = new Date(year, mon - 1, 1, 0, 0, 0, 0);
+      const end = new Date(year, mon, 0, 23, 59, 59, 999);
       match.createdAt = { $gte: start, $lte: end };
-    }
-
-    const groupStage = {
-      _id: "$paymentStatus",
-    };
-
-    if (by === "amount") {
-      groupStage.total = { $sum: { $ifNull: ["$amount", "$totalAmount", 0] } };
-    } else {
-      groupStage.total = { $sum: 1 };
     }
 
     const agg = await Booking.aggregate([
       { $match: match },
-      { $group: groupStage }
+      {
+        $group: {
+          _id: "$paymentStatus",
+          total: by === "amount"
+            ? {
+                $sum: {
+                  $ifNull: [
+                    "$amount",
+                    { $ifNull: ["$totalAmount", 0] }
+                  ]
+                }
+              }
+            : { $sum: 1 }
+        }
+      }
     ]);
 
-    // produce consistent keys
-    const result = agg.reduce((acc, cur) => {
-      acc[cur._id || "Unknown"] = cur.total;
-      return acc;
-    }, {});
+    const result = {};
+    agg.forEach(i => {
+      result[i._id || "Unknown"] = i.total;
+    });
 
     res.json(result);
   } catch (err) {
-    console.error("status-distribution error", err);
+    console.error("status-distribution error:", err);
     res.status(500).json({ message: "Failed to compute distribution" });
   }
 });
 
-/* ================================
+/* =====================
    PAYMENT TRENDS
-   GET /api/admin/payments/trends?days=30&by=amount
-================================ */
-router.get("/trends", async (req, res) => {
+   GET /api/admin/payments/trends?days=30
+===================== */
+router.get("/trends", verifyAdmin, async (req, res) => {
   try {
     const days = Math.min(180, Number(req.query.days) || 30);
+
     const end = new Date();
     end.setHours(23, 59, 59, 999);
+
     const start = new Date();
     start.setDate(start.getDate() - (days - 1));
     start.setHours(0, 0, 0, 0);
 
     const agg = await Booking.aggregate([
-      { $match: { createdAt: { $gte: start, $lte: end }, paymentStatus: "Paid" } },
-      { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, total: { $sum: { $ifNull: ["$amount", "$totalAmount", 0] } } } },
+      {
+        $match: {
+          createdAt: { $gte: start, $lte: end },
+          paymentStatus: { $in: ["Paid", "Cash"] }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt"
+            }
+          },
+          total: {
+            $sum: {
+              $ifNull: [
+                "$amount",
+                { $ifNull: ["$totalAmount", 0] }
+              ]
+            }
+          }
+        }
+      },
       { $sort: { _id: 1 } }
     ]);
 
-    res.json({ days, start: start.toISOString(), end: end.toISOString(), series: agg });
+    res.json({ days, series: agg });
   } catch (err) {
-    console.error("trends error", err);
+    console.error("trends error:", err);
     res.status(500).json({ message: "Failed to load trends" });
   }
 });
 
-/* ================================
-   VERIFY & SYNC SINGLE BOOKING
-   (checks Stripe PaymentIntent and updates booking)
-================================ */
+/* =====================
+   VERIFY & SYNC BOOKING
+   PUT /api/admin/payments/verify/:id
+===================== */
 router.put("/verify/:id", verifyAdmin, async (req, res) => {
   try {
     const { id } = req.params;
+
     const booking = await Booking.findById(id);
     if (!booking) return res.status(404).json({ message: "Booking not found" });
-    if (!booking.paymentIntentId) return res.status(400).json({ message: "No paymentIntentId on booking" });
+    if (!booking.paymentIntentId) {
+      return res.status(400).json({ message: "No paymentIntentId found" });
+    }
 
-    // retrieve payment intent from Stripe
     const pi = await stripe.paymentIntents.retrieve(booking.paymentIntentId);
-
-    // Stripe amounts are in smallest currency unit (paise)
-    const stripeAmount = (pi.amount != null) ? (pi.amount / 100) : null;
+    const stripeAmount = pi.amount ? pi.amount / 100 : 0;
 
     if (pi.status === "succeeded") {
       booking.paymentStatus = "Paid";
-      // prefer amount if present, otherwise use Stripe amount
-      booking.totalAmount = booking.amount != null ? booking.amount : (stripeAmount || booking.totalAmount);
+      booking.totalAmount = booking.amount ?? stripeAmount;
       await booking.save();
-      return res.json({ success: true, booking, stripeStatus: pi.status });
+
+      return res.json({ success: true, booking });
     }
 
-    // for other statuses mark pending (or leave as-is)
-    booking.paymentStatus = pi.status === "requires_payment_method" ? "Pending" : booking.paymentStatus;
-    if (stripeAmount && !booking.totalAmount) booking.totalAmount = stripeAmount;
+    booking.paymentStatus = "Pending";
+    if (!booking.totalAmount && stripeAmount) {
+      booking.totalAmount = stripeAmount;
+    }
     await booking.save();
 
     res.json({ success: true, booking, stripeStatus: pi.status });
   } catch (err) {
-    console.error("verify booking error", err);
+    console.error("verify error:", err);
     res.status(500).json({ message: "Verification failed" });
   }
 });

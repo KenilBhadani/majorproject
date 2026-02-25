@@ -1,192 +1,239 @@
+// backend/routes/booking.js
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 const Booking = require("../models/Booking");
 const RoomListing = require("../models/RoomListing");
-const jwt = require("jsonwebtoken");
-const Stripe = require("stripe");
+const User = require("../models/User");
+const auth = require("../middleware/auth");       // token/session login
+const isAdmin = require("../middleware/isAdmin"); // admin middleware
+const verifyStaff = require("../middleware/verifyStaff");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-/* =========================
-   AUTH MIDDLEWARE (FIXED)
-========================= */
-const authMiddleware = (req, res, next) => {
-  if (req.session?.user) {
-    req.user = {
-      userId: req.session.user.id,
-      email: req.session.user.email,
-      role: req.session.user.role,
-    };
-    return next();
-  }
-
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "No token provided" });
-  }
-
+// =========================
+// GET BOOKINGS - MY BOOKINGS
+// =========================
+router.get("/my", auth, async (req, res) => {
   try {
-    const token = authHeader.split(" ")[1];
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: "Invalid or expired token" });
-  }
-};
+    console.log("User fetching My Bookings:", req.user);
 
-/* =========================
-   GET USER BOOKINGS (FIXED)
-========================= */
-router.get("/my", authMiddleware, async (req, res) => {
-  try {
+    // Get the logged-in user's email
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Convert string userId to ObjectId for MongoDB
+    const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
+
+    // Fetch bookings where userId matches OR email matches (for legacy bookings without userId)
     const bookings = await Booking.find({
-      userId: new mongoose.Types.ObjectId(req.user.userId),
+      $or: [
+        { userId: userObjectId },
+        { email: user.email }
+      ]
     })
       .populate("roomId")
       .sort({ createdAt: -1 });
 
-    res.json({ bookings });
+    res.json(bookings || []);
   } catch (err) {
-    console.error("FETCH BOOKINGS ERROR:", err);
+    console.error("MY BOOKINGS ERROR:", err);
     res.status(500).json({ error: "Failed to fetch bookings" });
   }
 });
 
-/* =========================
-   SAVE BOOKING (DATE-BASED)
-========================= */
-router.post("/save", async (req, res) => {
+// =========================
+// GET BOOKINGS - GUEST BY EMAIL
+// =========================
+router.get("/guest", async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: "Email required" });
+
+    const bookings = await Booking.find({ email })
+      .populate("roomId")
+      .sort({ createdAt: -1 });
+
+    res.json(bookings || []);
+  } catch (err) {
+    console.error("GUEST BOOKINGS ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch guest bookings" });
+  }
+});
+
+// =========================
+// ADMIN BOOKINGS
+// =========================
+router.get("/admin", auth, isAdmin, async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate("roomId")
+      .sort({ createdAt: -1 });
+    res.json(bookings || []);
+  } catch (err) {
+    console.error("ADMIN BOOKINGS ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch bookings" });
+  }
+});
+
+// =========================
+// STAFF TASKS
+// =========================
+router.get("/staff/tasks", verifyStaff, async (req, res) => {
+  try {
+    const tasks = await Booking.find({ assignedStaff: req.user.userId })
+      .populate("roomId")
+      .sort({ createdAt: -1 });
+    res.json(tasks || []);
+  } catch (err) {
+    console.error("STAFF TASKS ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch staff tasks" });
+  }
+});
+
+// =========================
+// SAVE BOOKING
+// =========================
+router.post("/save", auth, async (req, res) => {
   try {
     const {
       bookingData,
       roomId,
-      nights,
-      subtotal,
-      gstAmount,
-      amount,
+      ratePerNight,
       checkIn,
       checkOut,
-      paymentMethod,
+      nights,
+      subtotal,
+      discountPercent = 0,
+      discountAmount = 0,
+      gst,
+      amount,
       paymentIntentId,
     } = req.body;
 
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-
-    if (start >= end) {
-      return res.status(400).json({ error: "Invalid date range" });
+    // Validate required fields
+    if (!roomId || !checkIn || !checkOut) {
+      return res.status(400).json({ error: "Missing required booking data" });
     }
 
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime()) || checkInDate >= checkOutDate) {
+      return res.status(400).json({ error: "Invalid check-in/check-out dates" });
+    }
+
+    // Check room availability
     const room = await RoomListing.findById(roomId);
-    if (!room) return res.status(404).json({ error: "Room not found" });
+    if (!room) {
+      return res.status(404).json({ error: "Room not found" });
+    }
 
-    const totalRooms = room.totalRooms || 1;
-
-    const overlappingCount = await Booking.countDocuments({
+    // Count overlapping bookings that block availability
+    const overlappingBookings = await Booking.countDocuments({
       roomId,
-      status: { $ne: "Cancelled" },
-      checkIn: { $lt: end },
-      checkOut: { $gt: start },
+      bookingStatus: { $nin: ["Cancelled", "Checked-out"] },
+      checkIn: { $lt: checkOutDate },
+      checkOut: { $gt: checkInDate },
     });
 
-    if (overlappingCount >= totalRooms) {
-      return res
-        .status(400)
-        .json({ error: "No rooms available for selected dates" });
+    if (overlappingBookings >= room.totalRooms) {
+      return res.status(400).json({ error: "No rooms available for the selected dates" });
     }
 
-    let userId = null;
-    if (req.session?.user) userId = req.session.user.id;
-    else if (req.headers.authorization) {
-      try {
-        userId = jwt.verify(
-          req.headers.authorization.split(" ")[1],
-          process.env.JWT_SECRET
-        ).userId;
-      } catch {}
-    }
-
-    const booking = await Booking.create({
+    const booking = new Booking({
       roomId,
-      roomTitle: bookingData.roomTitle,
-      ratePerNight: bookingData.ratePerNight,
-
+      roomTitle: room?.title || "",
+      ratePerNight,
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
       email: bookingData.email,
       phone: bookingData.phone,
       gst: bookingData.gst,
       requests: bookingData.requests,
-
       nights,
       subtotal,
-      gstAmount,
-      amount,
-
-      checkIn: start,
-      checkOut: end,
-
-      paymentIntentId: paymentIntentId || null,
-      paymentStatus: paymentMethod === "CASH" ? "Cash" : "Pending",
-      status: paymentMethod === "CASH" ? "Confirmed" : "Pending",
-
-      userId,
+      discountPercent: Number(discountPercent) || 0,
+      discountAmount: Number(discountAmount) || 0,
+      gstAmount: gst,
+      totalAmount: amount,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      paymentIntentId,
+      paymentStatus: paymentIntentId ? "Paid" : "Cash",
+      bookingStatus: "Confirmed",
+      userId: req.user?.userId || null,
     });
 
+    await booking.save();
     res.json({ success: true, booking });
   } catch (err) {
     console.error("SAVE BOOKING ERROR:", err);
-    res.status(500).json({ error: "Failed to save booking" });
+    res.status(500).json({ error: "Booking save failed" });
   }
 });
 
-/* =========================
-   VERIFY STRIPE PAYMENT
-========================= */
-router.post("/verify-payment", async (req, res) => {
-  try {
-    const { paymentIntentId } = req.body;
-
-    const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    if (intent.status !== "succeeded") {
-      return res.status(400).json({ error: "Payment not successful" });
-    }
-
-    const booking = await Booking.findOneAndUpdate(
-      { paymentIntentId },
-      { paymentStatus: "Paid", status: "Confirmed" },
-      { new: true }
-    );
-
-    if (!booking) {
-      return res.status(404).json({ error: "Booking not found" });
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("VERIFY PAYMENT ERROR:", err);
-    res.status(500).json({ error: "Payment verification failed" });
-  }
-});
-
-/* =========================
-   CANCEL BOOKING
-========================= */
-router.put("/:id/cancel", async (req, res) => {
+// =========================
+// CANCEL BOOKING
+// =========================
+router.put("/:id/cancel", auth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
-    if (!booking || booking.status === "Cancelled") {
+    if (!booking || booking.bookingStatus === "Cancelled")
       return res.status(400).json({ error: "Invalid booking" });
-    }
 
-    booking.status = "Cancelled";
+    // 1. Update booking status
+    booking.bookingStatus = "Cancelled";
     await booking.save();
+
+    // 2. If a physical room was assigned, free it up
+    // Note: We need to import RoomInstance at the top
+    const RoomInstance = require("../models/RoomInstance"); 
+    
+    if (booking.assignedRoomInstance) {
+      const roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
+      if (roomInstance) {
+        // Only reset if it's currently occupied (STAY) or Reserved
+        // If it's already DIRTY or MAINTENANCE, maybe keep it?
+        // But usually cancellation means nobody stayed, so it should go back to FREE.
+        if (roomInstance.status === 'STAY') {
+             roomInstance.status = 'FREE';
+             roomInstance.assignedTo = null; // Clear staff assignment if any
+             await roomInstance.save();
+        }
+      }
+    }
 
     res.json({ success: true, message: "Booking cancelled" });
   } catch (err) {
     console.error("CANCEL ERROR:", err);
     res.status(500).json({ error: "Cancel failed" });
+  }
+});
+
+// =========================
+// VERIFY PAYMENT
+// =========================
+router.post("/verify-payment", async (req, res) => {
+  try {
+    const { paymentIntentId } = req.body;
+
+    const booking = await Booking.findOne({ paymentIntentId });
+    if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (!["succeeded", "processing"].includes(paymentIntent.status))
+      return res.status(400).json({ error: `Payment status: ${paymentIntent.status}` });
+
+    booking.paymentStatus = paymentIntent.status === "succeeded" ? "Paid" : "Pending";
+    await booking.save();
+
+    res.json({ success: true, status: paymentIntent.status });
+  } catch (err) {
+    console.error("VERIFY PAYMENT ERROR:", err);
+    res.status(500).json({ error: "Payment verification failed" });
   }
 });
 

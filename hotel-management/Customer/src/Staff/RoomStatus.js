@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+// src/Staff/RoomStatus.js
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Bed, CheckCircle2, Waves, Brush, ChevronLeft, Search, Filter } from 'lucide-react';
+import { Bed, CheckCircle2, Brush, ChevronLeft, Wrench } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -8,163 +9,261 @@ const RoomStatus = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchRooms();
-  }, []);
+  // 🔐 Authorization (NO early return)
+  const user = JSON.parse(localStorage.getItem('staffUser') || 'null');
+  const isAuthorized = user && ['Housekeeping', 'Receptionist'].includes(user.role);
+  const isReadOnly = user?.role === 'Receptionist';
 
-  // Authorization guard: Housekeeping and Manager allowed
-  const user = JSON.parse(localStorage.getItem('staffUser') || 'null') || { role: '' };
-  if (!['Housekeeping','Manager'].includes(user.role)) {
-    return <div className="p-10 text-center">You are not authorized to view this page.</div>;
-  }
+  // Default filter based on role
+  const defaultFilter = user?.role === 'Housekeeping' ? 'Cleaning' : 'All';
+  const [filter, setFilter] = useState(defaultFilter);
+
+  // ✅ Hooks ALWAYS run
+  useEffect(() => {
+    if (isAuthorized) fetchRooms();
+    else setLoading(false);
+  }, [isAuthorized]);
 
   const fetchRooms = async () => {
     try {
-      // Use aggregated panel endpoint which returns a rooms array
-      const res = await fetch(`${API}/api/staff/panel`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
+      setLoading(true);
+      const res = await fetch(`${API}/api/staff/rooms/instances`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('staffToken')}`
+        }
       });
-      if (!res.ok) throw new Error('Failed to fetch panel');
+      if (!res.ok) throw new Error("Failed to load rooms");
       const data = await res.json();
-      setRooms(Array.isArray(data.rooms) ? data.rooms : []);
+      setRooms(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Error fetching rooms:", err);
+      console.error(err);
       setRooms([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateStatus = async (roomId, newStatus) => {
+  // ✅ Safe memo
+  const filteredRooms = useMemo(() => {
+    let filtered = rooms;
+
+    // Filter by Assignment (Housekeeping/Maintenance only see their rooms)
+    if (user && (user.role === 'Housekeeping' || user.role === 'Maintenance')) {
+      // Use userId or id or staffId depending on what's in local storage
+      const userId = user.userId || user.id || user.staffId;
+      filtered = filtered.filter(room => room.assignedTo === userId);
+    }
+
+    if (filter === "All") return filtered;
+    if (filter === "Available") return filtered.filter(room => room.status === "FREE");
+    if (filter === "Occupied") return filtered.filter(room => room.status === "STAY");
+    if (filter === "Cleaning") return filtered.filter(room => room.status === "CLEANING");
+    if (filter === "Clean") return filtered.filter(room => room.status === "CLEAN");
+    if (filter === "Maintenance") return filtered.filter(room => room.status === "MAINTENANCE");
+    return filtered;
+  }, [rooms, filter, user]);
+
+  const updateStatus = async (roomId, status) => {
     try {
-      await fetch(`${API}/api/staff/rooms/${roomId}`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
+      const res = await fetch(`${API}/api/staff/rooms/instance/${roomId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem('staffToken')}`
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status })
       });
-      fetchRooms(); // Refresh the list
-    } catch (err) {
-      alert("Failed to update status");
+      
+      if (res.ok) {
+        fetchRooms();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Status update failed");
+      }
+    } catch {
+      alert("Status update failed");
     }
   };
 
-  const getStatusColor = (status) => {
+  const statusBadge = (status) => {
     switch (status) {
-      case 'available': return 'bg-emerald-500 text-white shadow-emerald-200';
-      case 'occupied': return 'bg-rose-500 text-white shadow-rose-200';
-      case 'cleaning': return 'bg-amber-500 text-white shadow-amber-200';
-      default: return 'bg-slate-400 text-white';
+      case "FREE": return "bg-emerald-100 text-emerald-700";
+      case "STAY": return "bg-rose-100 text-rose-700";
+      case "CLEANING": return "bg-amber-100 text-amber-700";
+      case "CLEAN": return "bg-blue-100 text-blue-700";
+      default: return "bg-slate-100 text-slate-600";
     }
   };
+
+  const statusIcon = (status) => {
+    if (status === "FREE") return <CheckCircle2 size={22} />;
+    if (status === "STAY") return <Bed size={22} />;
+    if (status === "CLEAN") return <CheckCircle2 size={22} />;
+    return <Brush size={22} />;
+  };
+
+  // 🔴 Render unauthorized AFTER hooks
+  if (!isAuthorized) {
+    return (
+      <div className="p-20 text-center text-red-600 font-bold">
+        You are not authorized to view this page.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/staff/panel" className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-            <ChevronLeft size={24} className="text-slate-600" />
+          <Link to="/staff/dashboard" className="p-2 hover:bg-slate-200 rounded-full">
+            <ChevronLeft size={22} />
           </Link>
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">Room Inventory</h2>
-            <p className="text-sm text-slate-500">Manage {rooms.length} total units</p>
+            <h2 className="text-2xl font-bold">Room Inventory</h2>
+            <p className="text-sm text-slate-500">
+              {rooms.length} total physical units
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-           <div className="flex bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-              <button className="px-4 py-1.5 text-xs font-bold rounded-lg bg-slate-100 text-slate-800">All</button>
-              <button className="px-4 py-1.5 text-xs font-bold text-slate-500 hover:text-emerald-600">Available</button>
-              <button className="px-4 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600">Occupied</button>
-           </div>
+        {/* Filters */}
+        <div className="flex bg-white border rounded-xl p-1 shadow-sm">
+          <Filter label="All" active={filter === "All"} onClick={() => setFilter("All")} />
+          <Filter label="Available" active={filter === "Available"} onClick={() => setFilter("Available")} />
+          <Filter label="Occupied" active={filter === "Occupied"} onClick={() => setFilter("Occupied")} />
+          <Filter label="Cleaning" active={filter === "Cleaning"} onClick={() => setFilter("Cleaning")} />
         </div>
       </div>
 
-      {/* Room Grid */}
+      {/* Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-48 bg-slate-200 animate-pulse rounded-2xl"></div>
+            <div key={i} className="h-40 bg-slate-200 animate-pulse rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {rooms.map(room => {
-            const displayStatus = room.roomStatus || room.status;
-            return (
-            <div key={room._id} className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden group">
-              {/* Card Header: Room Number & Icon */}
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="space-y-1">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Room</p>
-                    <h3 className="text-3xl font-black text-slate-900 leading-none">{room.number || room.title || room._id.slice(-4)}</h3>
-                  </div>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${getStatusColor(displayStatus)}`}>
-                    {displayStatus === 'available' && <CheckCircle2 size={24} />}
-                    {displayStatus === 'occupied' && <Bed size={24} />}
-                    {displayStatus === 'cleaning' && <Brush size={24} />}
-                  </div>
-                </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredRooms.map(room => (
+            <div key={room._id} className="bg-white rounded-3xl p-5 border shadow-sm hover:shadow-md transition">
 
-                <div className="flex items-center gap-2 mb-6">
-                  <span className="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-600 rounded-md uppercase">
-                    {room.roomType || room.type || room.title || '—'}
-                  </span>
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <p className="text-xs uppercase text-slate-400 font-bold">Room</p>
+                  <h3 className="text-3xl font-black">
+                    {room.roomNumber || room._id.slice(-4)}
+                  </h3>
                 </div>
-
-                {/* Status Switcher Buttons */}
-                <div className="flex flex-col gap-2">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Set Status</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <StatusButton 
-                      label="Free" 
-                      active={displayStatus === 'available'} 
-                      onClick={() => updateStatus(room._id, 'available')}
-                      activeClass="bg-emerald-50 text-emerald-600 border-emerald-200"
-                    />
-                    <StatusButton 
-                      label="Stay" 
-                      active={displayStatus === 'occupied'} 
-                      onClick={() => updateStatus(room._id, 'occupied')}
-                      activeClass="bg-rose-50 text-rose-600 border-rose-200"
-                    />
-                    <StatusButton 
-                      label="Clean" 
-                      active={displayStatus === 'cleaning'} 
-                      onClick={() => updateStatus(room._id, 'cleaning')}
-                      activeClass="bg-amber-50 text-amber-600 border-amber-200"
-                    />
-                  </div>
+                <div className={`p-3 rounded-2xl ${statusBadge(room.status)}`}>
+                  {statusIcon(room.status)}
                 </div>
               </div>
+
+              <p className="text-xs font-bold uppercase text-slate-500 mb-4">
+                {room.roomListing?.title || room.roomListing?.roomType || "—"}
+              </p>
+
+              <div className="grid grid-cols-3 gap-2">
+                {/* Housekeeping Actions */}
+                {user?.role === 'Housekeeping' && (
+                  <>
+                    {room.status === 'DIRTY' && (
+                      <ActionButton 
+                        label="Start Cleaning" 
+                        active={false} 
+                        onClick={() => updateStatus(room._id, "CLEANING")} 
+                        activeClass="bg-amber-100 text-amber-700"
+                        disabled={false}
+                      />
+                    )}
+                    {room.status === 'CLEANING' && (
+                      <ActionButton 
+                        label="Clean Completed" 
+                        active={false} 
+                        onClick={() => updateStatus(room._id, "CLEAN")} 
+                        activeClass="bg-blue-100 text-blue-700"
+                        disabled={false}
+                      />
+                    )}
+                    {(room.status === 'CLEAN' || room.status === 'READY') && (
+                      <div className="col-span-2 text-xs text-center font-bold text-slate-500 bg-slate-100 py-2 rounded-lg">
+                        Waiting for Admin Approval
+                      </div>
+                    )}
+                    {(room.status === 'DIRTY' || room.status === 'CLEANING') && (
+                      <ActionButton 
+                        label="Report Issue" 
+                        active={false} 
+                        onClick={() => updateStatus(room._id, "MAINTENANCE")} 
+                        activeClass="bg-orange-100 text-orange-700"
+                        disabled={false}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Maintenance Actions */}
+                {user?.role === 'Maintenance' && (
+                  <>
+                    {room.status === 'MAINTENANCE' ? (
+                      <ActionButton 
+                        label="Repair Complete" 
+                        active={false} 
+                        onClick={() => updateStatus(room._id, "READY")} 
+                        activeClass="bg-green-100 text-green-700"
+                        disabled={false}
+                      />
+                    ) : (
+                      <div className="col-span-2 text-xs text-center font-bold text-slate-500 bg-slate-100 py-2 rounded-lg">
+                         Task Completed
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Receptionist View (ReadOnly) */}
+                {user?.role === 'Receptionist' && (
+                  <div className="col-span-full text-xs text-center text-slate-500">
+                    View Only
+                  </div>
+                )}
+              </div>
             </div>
-          );
-        })}
+          ))}
         </div>
       )}
 
-      {rooms.length === 0 && !loading && (
-        <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
-           <p className="text-slate-400 font-medium">No rooms found in database.</p>
+      {!loading && filteredRooms.length === 0 && (
+        <div className="text-center py-20 text-slate-400 font-medium">
+          No rooms match this filter.
         </div>
       )}
     </div>
   );
 };
 
-// Sub-component for the status toggles
-const StatusButton = ({ label, active, onClick, activeClass }) => (
-  <button 
+const ActionButton = ({ label, active, onClick, activeClass, disabled }) => (
+  <button
+    onClick={disabled ? undefined : onClick}
+    disabled={disabled}
+    className={`py-2 text-[11px] font-black uppercase rounded-xl transition
+      ${active ? activeClass : "border border-slate-200 text-slate-400"}
+      ${!disabled && !active ? "hover:border-slate-400" : ""}
+      ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+    `}
+  >
+    {label}
+  </button>
+);
+
+const Filter = ({ label, active, onClick }) => (
+  <button
     onClick={onClick}
-    className={`py-2 text-[10px] font-black uppercase rounded-xl border transition-all ${
-      active 
-      ? activeClass 
-      : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'
-    }`}
+    className={`px-4 py-1.5 text-xs font-bold rounded-lg transition
+      ${active ? "bg-blue-600 text-white" : "text-slate-500 hover:text-blue-600"}
+    `}
   >
     {label}
   </button>

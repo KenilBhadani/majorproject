@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Room = require("../models/RoomListing");
+const RoomInstance = require("../models/RoomInstance");
 const Task = require("../models/Task");
 const Booking = require("../models/Booking"); // if exists
 const verifyStaff = require("../middleware/verifyStaff");
@@ -8,8 +9,7 @@ const verifyStaff = require("../middleware/verifyStaff");
 router.get("/dashboard", verifyStaff, async (req, res) => {
   try {
     const availableRooms = await Room.countDocuments({
-      AvailabilityStatus: "Available",
-      isActive: true
+      status: "active"
     });
 
     const activeGuests = await Booking.countDocuments({
@@ -38,6 +38,114 @@ router.get("/dashboard", verifyStaff, async (req, res) => {
   }
 });
 
+// GET /panel - comprehensive panel data for staff dashboard
+router.get("/panel", verifyStaff, async (req, res) => {
+  try {
+    // ✅ FIXED: Include all operational room statuses (active, available, STAY, CLEANING, CLEAN, FREE)
+    const roomDocs = await Room.find({ status: { $in: ["active", "available", "STAY", "CLEANING", "CLEAN", "FREE"] } });
+    let totalRooms = 0;
+    let availableRooms = 0;
+    let occupiedRooms = 0;
+    let cleaningRooms = 0;
+    let maintenanceRooms = 0;
+
+    // ✅ Date boundaries for today
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    for (const room of roomDocs) {
+      totalRooms += room.totalRooms;
+      
+      // ✅ Count CHECKED-IN guests (occupied rooms)
+      const occupiedForRoom = await Booking.countDocuments({
+        roomId: room._id,
+        bookingStatus: "Checked-in"
+      });
+      
+      // ✅ Count CONFIRMED bookings for TODAY (arriving today or staying through)
+      const bookedForRoom = await Booking.countDocuments({
+        roomId: room._id,
+        bookingStatus: "Confirmed",
+        checkIn: { $lte: endOfDay },
+        checkOut: { $gte: startOfDay }
+      });
+      
+      // ✅ Calculate available = Total - (Occupied + Booked)
+      availableRooms += Math.max(0, room.totalRooms - occupiedForRoom - bookedForRoom);
+      occupiedRooms += occupiedForRoom;
+    }
+
+    // ✅ Count rooms by status - use uppercase (CLEANING not cleaning)
+    cleaningRooms = await Room.countDocuments({ status: "CLEANING" });
+    maintenanceRooms = await Room.countDocuments({ status: "MAINTENANCE" });
+
+    const stats = {
+      totalRooms,
+      availableRooms,
+      occupiedRooms,
+      cleaningRooms,
+      maintenanceRooms,
+      activeGuests: await Booking.countDocuments({ bookingStatus: "Checked-in" }),
+      checkInsToday: await Booking.countDocuments({
+        actualCheckIn: { $gte: new Date(new Date().setHours(0, 0, 0)) }
+      }),
+      checkOutsToday: await Booking.countDocuments({
+        actualCheckOut: { $gte: new Date(new Date().setHours(0, 0, 0)) }
+      }),
+      pendingTasks: await Task.countDocuments({ status: "Pending" }),
+      occupancy: 0 // will be calculated in frontend
+    };
+
+    // ✅ Rooms (include STAY, CLEANING, CLEAN, FREE for operational tracking)
+    const rooms = await Room.find({ status: { $in: ["active", "STAY", "CLEANING", "CLEAN", "FREE"] } }).limit(100);
+
+    // ✅ Recent bookings (limit to 50 for history)
+    // But also include ALL bookings relevant for Today's Check-in/Check-out
+    
+    const todayBookings = await Booking.find({
+      $or: [
+        { checkIn: { $gte: startOfDay, $lte: endOfDay }, bookingStatus: 'Confirmed' }, // Check-ins
+        { checkOut: { $gte: startOfDay, $lte: endOfDay }, bookingStatus: 'Checked-in' }, // Check-outs
+        { bookingStatus: 'Checked-in' } // Currently staying guests
+      ]
+    }).populate('roomId');
+
+    const recentBookings = await Booking.find({})
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .populate('roomId');
+    
+    // Merge and deduplicate
+    const bookingMap = new Map();
+    [...todayBookings, ...recentBookings].forEach(b => bookingMap.set(String(b._id), b));
+    const bookings = Array.from(bookingMap.values());
+
+    // Tasks
+    const tasks = await Task.find({})
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    // Guests (checked-in bookings)
+    const guests = await Booking.find({ bookingStatus: "Checked-in" })
+      .populate('roomId')
+      .sort({ actualCheckIn: -1 })
+      .limit(50);
+
+    res.json({
+      stats,
+      rooms,
+      bookings,
+      tasks,
+      guests
+    });
+  } catch (err) {
+    console.error("Panel data error:", err);
+    res.status(500).json({ message: "Failed to load panel data" });
+  }
+});
+
 // GET bookings - staff can list bookings
 router.get('/bookings', verifyStaff, async (req, res) => {
   try {
@@ -49,21 +157,38 @@ router.get('/bookings', verifyStaff, async (req, res) => {
   }
 });
 
-// PUT /bookings/:id/:action - checkin|checkout|cancel by Receptionist / Manager
-router.put('/bookings/:id/:action', verifyStaff, async (req, res) => {
+// GET /api/staff/bookings/:id - get single booking details
+router.get('/bookings/:id', verifyStaff, async (req, res) => {
   try {
-    const { id, action } = req.params;
-    console.log(`[STAFF ACTION] staffId=${req.user.id} role=${req.user.role} action=${action} bookingId=${id}`);
+    const { id } = req.params;
+    const booking = await Booking.findById(id).populate('roomId');
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+    res.json(booking);
+  } catch (err) {
+    console.error('GET BOOKING ERROR:', err);
+    res.status(500).json({ message: 'Failed to load booking' });
+  }
+});
+
+// PUT /bookings/:id/status - update booking status (for frontend compatibility)
+router.put('/bookings/:id/status', verifyStaff, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    console.log(`[STAFF ACTION] staffId=${req.user.id} role=${req.user.role} status=${status} bookingId=${id}`);
     const booking = await Booking.findById(id);
     if (!booking) return res.status(404).json({ message: 'Not found' });
 
-    const mapping = {
-      checkin: 'Checked-in',
-      checkout: 'Checked-out',
-      cancel: 'Cancelled'
+    const actionMap = {
+      'Checked-in': 'checkin',
+      'Checked-out': 'checkout',
+      'Cancelled': 'cancel'
     };
 
-    if (!mapping[action]) return res.status(400).json({ message: 'Unknown action' });
+    const action = actionMap[status];
+    if (!action) return res.status(400).json({ message: 'Unknown status' });
 
     // Authorization and per-action logic
     if (action === 'checkin') {
@@ -73,27 +198,35 @@ router.put('/bookings/:id/:action', verifyStaff, async (req, res) => {
       // Ensure not already checked-in
       if (booking.bookingStatus === 'Checked-in') return res.status(400).json({ message: 'Already checked-in' });
 
+      // Check room availability before check-in
+      const room = await Room.findById(booking.roomId);
+      if (!room) return res.status(404).json({ message: 'Room not found' });
+
+      // Find an available RoomInstance for this room type
+      const availableInstance = await RoomInstance.findOne({
+        roomListing: booking.roomId,
+        status: 'FREE'
+      });
+
+      if (!availableInstance) {
+        return res.status(400).json({ message: 'No rooms available for check-in' });
+      }
+
       const now = new Date();
 
-      // If booking has a room, attempt an atomic decrement to avoid races and negative counts
-      if (booking.roomId) {
-        try {
-          const decRes = await Room.updateOne({ _id: booking.roomId, availableRooms: { $gt: 0 } }, { $inc: { availableRooms: -1 } });
-          if (decRes.modifiedCount === 0) {
-            return res.status(400).json({ message: 'No available rooms for this booking' });
-          }
-        } catch (e) {
-          console.warn('Room availability atomic decrement failed', e.message);
-          // Proceed to set booking but warn – this avoids blocking check-ins due to a transient room update error
-        }
-      } else {
-        console.warn('Booking has no roomId, skipping room availability update', booking._id);
-      }
+      // Assign the room instance and set status to STAY
+      availableInstance.status = 'STAY';
+      await availableInstance.save();
 
       // Update booking using partial update (avoid full validation failures)
       await Booking.updateOne({ _id: booking._id }, {
-        $set: { bookingStatus: 'Checked-in', actualCheckIn: now },
-        $push: { history: { action: 'checkin', by: req.user.id, note: `Checked in by ${req.user.role}`, createdAt: now } }
+        $set: {
+          bookingStatus: 'Checked-in',
+          actualCheckIn: now,
+          assignedRoomNumber: availableInstance.roomNumber,
+          assignedRoomInstance: availableInstance._id
+        },
+        $push: { history: { action: 'checkin', by: req.user.id, note: `Checked in by ${req.user.role} - Room ${availableInstance.roomNumber}`, createdAt: now } }
       });
 
     } else if (action === 'checkout') {
@@ -109,19 +242,18 @@ router.put('/bookings/:id/:action', verifyStaff, async (req, res) => {
         $push: { history: { action: 'checkout', by: req.user.id, note: `Checked out by ${req.user.role}`, createdAt: now } }
       });
 
-      if (booking.roomId) {
-        try {
-          // increment and then clamp to totalRooms when possible
-          await Room.updateOne({ _id: booking.roomId }, { $inc: { availableRooms: 1 } });
-          const roomAfter = await Room.findById(booking.roomId).select('availableRooms totalRooms');
-          if (roomAfter && typeof roomAfter.totalRooms === 'number' && roomAfter.availableRooms > roomAfter.totalRooms) {
-            await Room.updateOne({ _id: booking.roomId }, { $set: { availableRooms: roomAfter.totalRooms } });
+      // 🔄 AUTOMATED WORKFLOW: Set assigned room instance to CLEANING status after check-out
+      try {
+        if (booking.assignedRoomInstance) {
+          const roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
+          if (roomInstance) {
+            roomInstance.status = 'CLEANING';
+            await roomInstance.save();
+            console.log(`[AUTO WORKFLOW] Room ${roomInstance.roomNumber} set to CLEANING after check-out`);
           }
-        } catch (e) {
-          console.warn('Room availability increment failed', e.message);
         }
-      } else {
-        console.warn('Booking has no roomId, skipping room availability update', booking._id);
+      } catch (roomErr) {
+        console.error('Failed to update room instance status after checkout:', roomErr);
       }
 
     } else if (action === 'cancel') {
@@ -159,13 +291,30 @@ router.put('/bookings/:id/:action', verifyStaff, async (req, res) => {
   }
 });
 
-// GET /panel - aggregated data for staff panel (dashboard + lists)
-router.get('/panel', verifyStaff, async (req, res) => {
+// GET /panel - aggregated data for staff panel (dashboard + lists) [DUPLICATE - REMOVED IN FAVOR OF FIRST /panel]
+// This endpoint is superseded by the first GET /panel above
+// Keeping stub for backward compatibility if needed
+router.get('/panel-alt', verifyStaff, async (req, res) => {
   try {
-    // Dashboard stats
-    const availableRooms = await Room.countDocuments({
-      status: 'active'
-    });
+    // ✅ Dashboard stats - count available as Total - (Occupied + Booked)
+    const roomDocs = await Room.find({ status: { $in: ["active", "available", "STAY", "CLEANING", "CLEAN", "FREE"] } });
+    let totalRooms = 0;
+    let availableRooms = 0;
+    let occupiedRooms = 0;
+
+    for (const room of roomDocs) {
+      totalRooms += room.totalRooms;
+      const occupiedForRoom = await Booking.countDocuments({
+        roomId: room._id,
+        bookingStatus: "Checked-in"
+      });
+      const bookedForRoom = await Booking.countDocuments({
+        roomId: room._id,
+        bookingStatus: "Confirmed"
+      });
+      availableRooms += Math.max(0, room.totalRooms - occupiedForRoom - bookedForRoom);
+      occupiedRooms += occupiedForRoom;
+    }
 
     const activeGuests = await Booking.countDocuments({
       bookingStatus: 'Checked-in'
@@ -181,15 +330,15 @@ router.get('/panel', verifyStaff, async (req, res) => {
       status: 'Pending'
     });
 
-    // Lists
-    const rooms = await Room.find({ status: 'active' }).limit(200);
+    // ✅ Lists - include all operational room statuses
+    const rooms = await Room.find({ status: { $in: ["active", "STAY", "CLEANING", "CLEAN", "FREE"] } }).limit(200);
     const bookings = await Booking.find({}).sort({ checkIn: 1 }).limit(200).populate('roomId');
     const tasks = await Task.find({}).sort({ createdAt: -1 }).limit(200);
 
 
 
-    // derive guest list from bookings
-    const guestDocs = await Booking.find({}).select('firstName lastName phone email checkIn checkOut bookingStatus').limit(200);
+    // derive guest list from checked-in bookings
+    const guestDocs = await Booking.find({ bookingStatus: 'Checked-in' }).select('firstName lastName phone email checkIn checkOut bookingStatus roomId').limit(200).populate('roomId');
     const guests = guestDocs.map(b => ({
       _id: b._id,
       name: `${b.firstName || ''} ${b.lastName || ''}`.trim(),
@@ -197,7 +346,8 @@ router.get('/panel', verifyStaff, async (req, res) => {
       email: b.email || '',
       checkIn: b.checkIn,
       checkOut: b.checkOut,
-      bookingStatus: b.bookingStatus || b.status || ''
+      bookingStatus: b.bookingStatus || b.status || '',
+      roomId: b.roomId
     }));
 
     res.json({
@@ -216,8 +366,8 @@ router.get('/panel', verifyStaff, async (req, res) => {
 // Provide a lightweight rooms endpoint as well
 router.get('/rooms', verifyStaff, async (req, res) => {
   try {
-    const r = await Room.find({ status: 'active' }).limit(500);
-    res.json(r.map(rr => ({ ...rr.toObject(), roomStatus: rr.roomStatus || rr.status })));
+    const r = await Room.find({ status: { $in: ['active', 'available', 'occupied', 'cleaning', 'maintenance'] } }).limit(500);
+    res.json(r.map(rr => ({ ...rr.toObject(), roomStatus: rr.status })));
   } catch (err) {
     console.error('GET ROOMS ERROR', err);
     res.status(500).json({ message: 'Failed to load rooms' });
@@ -233,12 +383,120 @@ router.patch('/rooms/:id', verifyStaff, async (req, res) => {
     if (!status) return res.status(400).json({ message: 'Status required' });
     const room = await Room.findById(id);
     if (!room) return res.status(404).json({ message: 'Room not found' });
-    room.roomStatus = status;
+    room.status = status;
     await room.save();
     res.json({ success: true, room });
   } catch (err) {
     console.error('PATCH ROOM ERROR', err);
     res.status(500).json({ message: 'Failed to update room' });
+  }
+});
+
+// =========================
+// STAFF CREATE BOOKING (Receptionist)
+// =========================
+router.post('/bookings', verifyStaff, async (req, res) => {
+  try {
+    // Only Receptionist can create bookings
+    if (req.user.role !== 'Receptionist') {
+      return res.status(403).json({ message: 'Only Receptionist can create bookings' });
+    }
+
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      checkIn,
+      checkOut,
+      roomId,
+      specialRequests,
+      totalAmount
+    } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email || !phone || !checkIn || !checkOut || !roomId) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime()) || checkInDate >= checkOutDate) {
+      return res.status(400).json({ message: 'Invalid check-in/check-out dates' });
+    }
+
+    // Check room availability
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Count overlapping bookings
+    const overlappingBookings = await Booking.countDocuments({
+      roomId,
+      bookingStatus: { $nin: ['Cancelled', 'Checked-out'] },
+      checkIn: { $lt: checkOutDate },
+      checkOut: { $gt: checkInDate },
+    });
+
+    if (overlappingBookings >= room.totalRooms) {
+      return res.status(400).json({ message: 'No rooms available for the selected dates' });
+    }
+
+    // Create booking
+    const booking = new Booking({
+      roomId,
+      firstName,
+      lastName,
+      email,
+      phone,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      specialRequests,
+      totalAmount,
+      bookingStatus: 'Confirmed',
+      createdBy: req.user.userId
+    });
+
+    await booking.save();
+
+    // Populate room data for response
+    await booking.populate('roomId');
+
+    console.log(`[STAFF BOOKING] Receptionist ${req.user.userId} created booking ${booking._id}`);
+
+    res.json({ success: true, booking });
+
+  } catch (err) {
+    console.error('STAFF CREATE BOOKING ERROR:', err);
+    res.status(500).json({ message: 'Failed to create booking' });
+  }
+});
+
+// =========================
+// GET GUESTS DIRECTORY
+// =========================
+router.get('/guests', verifyStaff, async (req, res) => {
+  try {
+    // Fetch Confirmed (Expected), Checked-in (In-House), and Checked-out (History)
+    // Removed strict status filter temporarily to DEBUG
+    const query = {};
+
+    console.log('[GET GUESTS] Querying ALL bookings');
+
+    const guests = await Booking.find(query)
+    .select('firstName lastName email phone bookingStatus roomId assignedRoomNumber checkIn checkOut actualCheckIn')
+    .sort({ checkIn: -1 }) 
+    .limit(300)
+    .populate('roomId', 'title roomType');
+
+    console.log(`[GET GUESTS] Found ${guests.length} records`);
+
+    res.json(guests);
+  } catch (err) {
+    console.error('GET GUESTS ERROR:', err);
+    res.status(500).json({ message: 'Failed to load guest directory' });
   }
 });
 

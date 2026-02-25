@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Hotel } from "lucide-react";
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const SLogin = () => {
   const [email, setEmail] = useState("");

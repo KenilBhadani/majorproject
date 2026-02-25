@@ -1,79 +1,84 @@
 // ===== REACT & ROUTER =====
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 
 // ===== AUTH =====
-import Register from "./comp/Registration";
-import Login from "./comp/Login";
-import SLogin from "./Staff/Slogin";
-import OAuthSuccess from "./comp/OAuthSuccess";
-import ResetPassword from "./comp/ResetPassword";
+const Register = lazy(() => import("./comp/Registration"));
+const Login = lazy(() => import("./comp/Login"));
+const SLogin = lazy(() => import("./Staff/Slogin"));
+const OAuthSuccess = lazy(() => import("./comp/OAuthSuccess"));
+const ResetPassword = lazy(() => import("./comp/ResetPassword"));
 
 // ===== BOOKING =====
-import BookingForm from "./comp/Bookingcus";
-import RoomBooking from "./comp/roombooking";
-import Mybooking from "./comp/Mybookingpage";
+const BookingForm = lazy(() => import("./comp/Bookingcus"));
+const RoomBooking = lazy(() => import("./comp/roombooking"));
+const Mybooking = lazy(() => import("./comp/Mybookingpage"));
 
 // ===== LANDING =====
-import Herosection from "./comp/index";
-import AboutUs from "./comp/About";
-import Rooms from "./comp/staticroom";
-import Middle from "./comp/Middle";
-import Small from "./comp/small";
-import Footer from "./comp/footer";
-import Events from "./comp/Event";
-import LoyaltyHero from "./comp/Offer";
-import AboutPage from "./comp/Aboutpage";
-import Contact from "./comp/Contact";
-import EXPO from "./comp/expo";
-import Services from "./comp/services";
+const Herosection = lazy(() => import("./comp/index"));
+const AboutUs = lazy(() => import("./comp/About"));
+const Rooms = lazy(() => import("./comp/staticroom"));
+const Middle = lazy(() => import("./comp/Middle"));
+const Small = lazy(() => import("./comp/small"));
+const Footer = lazy(() => import("./comp/footer"));
+const Events = lazy(() => import("./comp/Event"));
+const LoyaltyHero = lazy(() => import("./comp/Offer"));
+const AboutPage = lazy(() => import("./comp/Aboutpage"));
+const Contact = lazy(() => import("./comp/Contact"));
+const EXPO = lazy(() => import("./comp/expo"));
+const Services = lazy(() => import("./comp/services"));
 
 // ===== ADMIN =====
-import Dashboard, { DashboardHome } from "./Admin/admin_dashboard";
-import ManageBookings from "./Admin/Manage_Booking";
-import ManageRoom from "./Admin/Manage_Room";
-import ManageUser from "./Admin/Manage_User";
-import PaymentReports from "./Admin/Payment_Report";
-import DashboardStats from "./Admin/Dash_stats";
-import ManageStaff from "./Admin/Manage_Staff";
+const Dashboard = lazy(() => import("./Admin/admin_dashboard"));
+const DashboardHome = lazy(() =>
+  import("./Admin/admin_dashboard").then((module) => ({ default: module.DashboardHome }))
+);
+const ManageBookings = lazy(() => import("./Admin/Manage_Booking"));
+const ManageRoom = lazy(() => import("./Admin/Manage_Room"));
+const ManageUser = lazy(() => import("./Admin/Manage_User"));
+const PaymentReports = lazy(() => import("./Admin/Payment_Report"));
+const DashboardStats = lazy(() => import("./Admin/Dash_stats"));
+const AdminStaff = lazy(() => import("./Admin/AdminStaff"));
+const AdminRoomStatus = lazy(() => import("./Admin/AdminRoomStatus"));
 
 // ===== STAFF =====
-import StaffLayout from "./Staff/StaffLayout";
-import StaffDashboard from "./Staff/StaffDashboard";
-import Bookings from "./Staff/Bookings";
-import Guests from "./Staff/Guests";
-import RoomStatus from "./Staff/RoomStatus";
-import Tasks from "./Staff/Tasks";
-import Reports from "./Staff/Reports";
+const StaffLayout = lazy(() => import("./Staff/StaffLayout"));
+const StaffDashboard = lazy(() => import("./Staff/StaffDashboard"));
+const Guests = lazy(() => import("./Staff/Guests"));
+const RoomStatus = lazy(() => import("./Staff/RoomStatus"));
+const HousekeepingPanel = lazy(() => import("./Staff/HousekeepingPanel"));
+const MaintenancePanel = lazy(() => import("./Staff/MaintenancePanel"));
+const Tasks = lazy(() => import("./Staff/Tasks"));
+const Reports = lazy(() => import("./Staff/Reports"));
+const ReceptionistDashboard = lazy(() => import("./Staff/ReceptionistDashboard"));
+const BookingManagement = lazy(() => import("./Staff/BookingManagement"));
+const CheckInOut = lazy(() => import("./Staff/CheckInOut"));
+const NewBooking = lazy(() => import("./Staff/NewBooking"));
+const SystemStatus = lazy(() => import("./Staff/SystemStatus"));
 
 // ===== STRIPE =====
 const stripePromise = loadStripe(
   "pk_test_51SkMIsFLOpfc1j4ILaTZdWkcAX35xQ8TKC9EG6EA7bOpjgqFfth7ifBBfyE93qC9gWTydziuqABvUgrVQVHPIPk700VHDRWx5M"
 );
 
+const AppLoader = () => (
+  <div
+    style={{
+      minHeight: "40vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontWeight: 600,
+      color: "#334155",
+    }}
+  >
+    Loading...
+  </div>
+);
+
 // ===== PROTECTED ROUTES =====
-const AdminRoute = ({ children }) => {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user"));
-
-  if (!token || user?.role !== "admin") {
-    return <Navigate to="/login" replace />;
-  }
-  return children;
-};
-
-const StaffRoute = ({ children }) => {
-  const token = localStorage.getItem("staffToken");
-  const user = JSON.parse(localStorage.getItem("staffUser") || 'null');
-
-  // Accept any authenticated staff role (Housekeeping / Receptionist / Manager)
-  if (!token || !user?.role) {
-    return <Navigate to="/login/staff" replace />;
-  }
-  return children;
-};
 
 // ===== APP COMPONENT =====
 function App() {
@@ -118,15 +123,71 @@ function App() {
       }
 
       // staff session restore
-      try {
-        const res2 = await fetch(`${process.env.REACT_APP_API_URL}/api/staff/auth/me`, { credentials: 'include' });
-        if (res2.ok) {
-          const staff = await res2.json();
-          localStorage.setItem('staffUser', JSON.stringify(staff));
-          if (!localStorage.getItem('staffToken')) localStorage.setItem('staffToken', 'session');
-        }
-      } catch (e) {}
+      if (localStorage.getItem('staffToken') || localStorage.getItem('staffUser')) {
+        try {
+          const res2 = await fetch(`${process.env.REACT_APP_API_URL}/api/staff/auth/me`, { credentials: 'include' });
+          if (res2.ok) {
+            const staff = await res2.json();
+            localStorage.setItem('staffUser', JSON.stringify(staff));
+            if (!localStorage.getItem('staffToken')) localStorage.setItem('staffToken', 'session');
+          }
+        } catch (e) {}
+      }
     })();
+  }, []);
+
+  // Prefetch likely-next routes during idle time for smoother navigation.
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
+    const staffUser = JSON.parse(localStorage.getItem("staffUser") || "null");
+
+    const prefetchPublic = () =>
+      Promise.allSettled([
+        import("./comp/roombooking"),
+        import("./comp/Mybookingpage"),
+        import("./comp/Login"),
+        import("./comp/Aboutpage"),
+        import("./comp/services"),
+        import("./comp/Contact"),
+      ]);
+
+    const prefetchAdmin = () =>
+      Promise.allSettled([
+        import("./Admin/admin_dashboard"),
+        import("./Admin/Manage_Booking"),
+        import("./Admin/Manage_Room"),
+      ]);
+
+    const prefetchStaff = () =>
+      Promise.allSettled([
+        import("./Staff/StaffLayout"),
+        import("./Staff/StaffDashboard"),
+        import("./Staff/BookingManagement"),
+      ]);
+
+    const runPrefetch = () => {
+      prefetchPublic();
+      if (adminUser?.role === "admin") prefetchAdmin();
+      if (staffUser?.role) prefetchStaff();
+      if (user?.role === "admin") prefetchAdmin();
+    };
+
+    let idleId;
+    const timeoutId = setTimeout(() => {
+      if ("requestIdleCallback" in window) {
+        idleId = window.requestIdleCallback(runPrefetch, { timeout: 2500 });
+      } else {
+        runPrefetch();
+      }
+    }, 800);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (idleId && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+    };
   }, []);
 
 // ===== PROTECTED ROUTES =====
@@ -152,7 +213,8 @@ const StaffRoute = ({ children }) => {
 };
 
   return (
-    <Routes>
+    <Suspense fallback={<AppLoader />}>
+      <Routes>
       {/* ===== PUBLIC ===== */}
       <Route
         path="/"
@@ -164,7 +226,9 @@ const StaffRoute = ({ children }) => {
             <Middle />
             <Small />
             <Events />
-            <LoyaltyHero />
+            <Elements stripe={stripePromise}>
+              <LoyaltyHero />
+            </Elements>
             <Footer />
           </>
         }
@@ -209,7 +273,8 @@ const StaffRoute = ({ children }) => {
         <Route path="manage-user" element={<ManageUser />} />
         <Route path="manage-payment" element={<PaymentReports />} />
         <Route path="dashboard-stats" element={<DashboardStats />} />
-        <Route path="manage-staff" element={<ManageStaff />} />
+        <Route path="manage-staff" element={<AdminStaff />} />
+        <Route path="room-status" element={<AdminRoomStatus />} />
       </Route>
 
       {/* ===== STAFF ===== */}
@@ -224,16 +289,24 @@ const StaffRoute = ({ children }) => {
         <Route index element={<StaffDashboard />} />
         <Route path="dashboard" element={<StaffDashboard />} />
         <Route path="panel" element={<StaffDashboard />} />
-        <Route path="bookings" element={<Bookings />} />
+        <Route path="receptionist" element={<ReceptionistDashboard />} />
+        <Route path="system-status" element={<SystemStatus />} />
+        <Route path="bookings" element={<BookingManagement />} />
+        <Route path="bookings/new" element={<NewBooking />} />
+        <Route path="booking-management" element={<BookingManagement />} />
+        <Route path="checkinout" element={<CheckInOut />} />
         <Route path="guests" element={<Guests />} />
         <Route path="rooms" element={<RoomStatus />} />
+        <Route path="housekeeping" element={<HousekeepingPanel />} />
+        <Route path="maintenance" element={<MaintenancePanel />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="reports" element={<Reports />} />
       </Route>
 
       {/* ===== FALLBACK ===== */}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }
 

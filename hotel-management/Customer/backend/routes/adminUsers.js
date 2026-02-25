@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const auth = require("../middleware/auth");
+const isAdmin = require("../middleware/isAdmin");
 
 /* ================================
    GET ALL USERS (ADMIN) ✅ FIXED
 ================================ */
-router.get("/", async (req, res) => {
+router.get("/", auth, isAdmin, async (req, res) => {
   try {
     // 🔥 lean() is REQUIRED here
     const users = await User.find().select("-password").lean();
@@ -34,7 +36,7 @@ router.get("/", async (req, res) => {
 /* ================================
    BLOCK / UNBLOCK USER ✅ FIXED
 ================================ */
-router.put("/:id/status", async (req, res) => {
+router.put("/:id/status", auth, isAdmin, async (req, res) => {
   try {
     const { isActive } = req.body;
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import "../Componentcss/Login.css";
+import "../Componentcss/Registration.css";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 

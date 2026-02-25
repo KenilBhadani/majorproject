@@ -4,6 +4,7 @@ const Room = require("../models/RoomListing");
 const upload = require("../middleware/upload");
 const fs = require("fs");
 const path = require("path");
+const createRoomInstancesForListing = require("../utils/createRoomInstances");
 
 /* ======================================================
    GET ALL ROOMS (ADMIN)
@@ -11,7 +12,12 @@ const path = require("path");
 router.get("/", async (req, res) => {
   try {
     const rooms = await Room.find().sort({ createdAt: -1 });
-    res.json(rooms);
+    // Map totalRooms to availableRooms for frontend compatibility
+    const roomsWithAvailable = rooms.map(room => ({
+      ...room.toObject(),
+      availableRooms: room.totalRooms
+    }));
+    res.json(roomsWithAvailable);
   } catch (err) {
     console.error("ADMIN GET ROOMS ERROR:", err);
     res.status(500).json({ message: "Failed to load rooms" });
@@ -31,6 +37,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
       capacity,
       bedType,
       totalRooms,
+      availableRooms, // frontend sends this, treat as totalRooms
       amenities,
       planName,
       inclusions,
@@ -45,7 +52,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
       !roomType ||
       !capacity ||
       !bedType ||
-      !totalRooms ||
+      !(totalRooms || availableRooms) ||
       !standardRate
     ) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -58,7 +65,7 @@ router.post("/", upload.array("images", 5), async (req, res) => {
       size: size ? Number(size) : undefined,
       capacity: Number(capacity),
       bedType,
-      totalRooms: Number(totalRooms),
+      totalRooms: Number(totalRooms || availableRooms),
 
       images: req.files?.map((f) => `uploads/${f.filename}`) || [],
 
@@ -81,6 +88,9 @@ router.post("/", upload.array("images", 5), async (req, res) => {
 
       status: "active",
     });
+
+    // Create room instances based on totalRooms
+    await createRoomInstancesForListing(room._id, room.totalRooms);
 
     res.status(201).json(room);
   } catch (err) {
@@ -136,14 +146,20 @@ router.put("/:id", upload.array("images", 5), async (req, res) => {
       ? Number(req.body.capacity)
       : room.capacity;
     room.bedType = req.body.bedType ?? room.bedType;
-    room.totalRooms = req.body.totalRooms
-      ? Number(req.body.totalRooms)
+    room.totalRooms = req.body.totalRooms || req.body.availableRooms
+      ? Number(req.body.totalRooms || req.body.availableRooms)
       : room.totalRooms;
 
     if (req.body.amenities) {
       room.amenities = req.body.amenities
         .split(",")
         .map((a) => a.trim());
+    }
+
+    // ✅ Update Status
+    if (req.body.status) {
+      console.log(`Updating room ${room.title} status to: ${req.body.status}`);
+      room.status = req.body.status;
     }
 
     if (req.body.standardRate) {
@@ -164,6 +180,52 @@ router.put("/:id", upload.array("images", 5), async (req, res) => {
     }
 
     await room.save();
+
+    // ✅ Sync Room Instances if totalRooms changed
+    if (req.body.totalRooms || req.body.availableRooms) {
+      const newTotal = Number(req.body.totalRooms || req.body.availableRooms);
+      const currentInstances = await RoomInstance.find({ roomListing: room._id }).sort({ createdAt: 1 });
+      const currentCount = currentInstances.length;
+
+      if (newTotal > currentCount) {
+        // Add more
+        const toAdd = newTotal - currentCount;
+        const newInstances = [];
+        let lastNum = 0;
+        
+        // Try to parse existing numbers to find max
+        if (currentCount > 0) {
+            const maxNum = currentInstances.reduce((max, inst) => {
+                const num = parseInt(inst.roomNumber.replace(/\D/g, '')) || 0;
+                return num > max ? num : max;
+            }, 0);
+            lastNum = maxNum;
+        }
+        
+        for (let i = 1; i <= toAdd; i++) {
+             newInstances.push({
+                 roomListing: room._id,
+                 roomNumber: `${lastNum + i}`, // Simple sequential numbers
+                 status: 'FREE'
+             });
+        }
+        await RoomInstance.insertMany(newInstances);
+        
+      } else if (newTotal < currentCount) {
+        // Remove excess (prefer FREE ones from the end)
+        const toRemove = currentCount - newTotal;
+        const freeInstances = currentInstances.filter(i => i.status === 'FREE').reverse();
+        
+        let removedCount = 0;
+        for (const inst of freeInstances) {
+            if (removedCount >= toRemove) break;
+            await RoomInstance.findByIdAndDelete(inst._id);
+            removedCount++;
+        }
+        // Note: We do not delete occupied rooms to prevent data inconsistency
+      }
+    }
+
     res.json(room);
   } catch (err) {
     console.error("ADMIN UPDATE ROOM ERROR:", err);

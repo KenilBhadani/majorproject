@@ -32,7 +32,8 @@ router.post("/", async (req, res) => {
       phone,
       role,
       shift,
-      password: hashedPassword
+      password: hashedPassword,
+      isActive: true, // default active
     });
 
     res.status(201).json(staff);
@@ -50,34 +51,66 @@ router.get("/", async (req, res) => {
     const staff = await Staff.find().sort({ createdAt: -1 });
     res.json(staff);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
 /* ===============================
-   UPDATE STAFF
+   UPDATE STAFF INFO
 ================================ */
 router.put("/:id", async (req, res) => {
   try {
-    const updated = await Staff.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
+    const { password, ...updateData } = req.body;
+
+    // Only hash/update password if provided and non-empty
+    if (password && password.trim() !== "") {
+      updateData.password = await bcrypt.hash(password, 10);
+    }
+
+    const updated = await Staff.findByIdAndUpdate(req.params.id, updateData, { new: true });
     res.json(updated);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Update failed" });
   }
 });
 
 /* ===============================
-   DISABLE STAFF
+   TOGGLE STAFF STATUS (ENABLE/DISABLE)
+================================ */
+router.put("/:id/status", async (req, res) => {
+  try {
+    const { isActive } = req.body;
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ message: "isActive must be boolean" });
+    }
+
+    const updated = await Staff.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true }
+    );
+
+    res.json(updated);
+  } catch (err) {
+    console.error("TOGGLE STAFF STATUS ERROR:", err);
+    res.status(500).json({ message: "Update failed" });
+  }
+});
+
+/* ===============================
+   DELETE STAFF
 ================================ */
 router.delete("/:id", async (req, res) => {
   try {
-    await Staff.findByIdAndUpdate(req.params.id, { isActive: false });
-    res.json({ success: true });
-  } catch {
+    const deleted = await Staff.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+    res.json({ message: "Staff deleted successfully" });
+  } catch (err) {
+    console.error("DELETE STAFF ERROR:", err);
     res.status(500).json({ message: "Delete failed" });
   }
 });

@@ -48,4 +48,4 @@ const RoomListingSchema = new mongoose.Schema(
 
 module.exports =
   mongoose.models.RoomListing ||
-  mongoose.model("RoomListing", RoomListingSchema, "rooms");
+  mongoose.model("RoomListing", RoomListingSchema);

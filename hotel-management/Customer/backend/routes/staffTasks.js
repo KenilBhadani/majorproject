@@ -18,8 +18,15 @@ router.get('/', verifyStaff, async (req, res) => {
       { description: { $regex: search, $options: 'i' } }
     ];
 
+    // Role-based filtering
+    if (req.user.role === 'Housekeeping') {
+      filter.assignedTo = req.user.id;
+    }
+    // Manager sees all, Receptionist sees all (can assign tasks)
+
     const tasks = await Task.find(filter)
       .populate('assignedTo', 'name email role')
+      .populate('roomId', 'title roomType number')
       .sort({ priority: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
@@ -49,14 +56,14 @@ router.get('/staff', verifyStaff, async (_req, res) => {
 // POST /api/staff/tasks - create
 router.post('/', verifyStaff, async (req, res) => {
   try {
-    const { title, description, priority = 'Medium', assignedTo, category, location, dueDate, tags = [] } = req.body;
+    const { title, description, priority = 'Medium', assignedTo, category, location, roomId, dueDate, tags = [] } = req.body;
     // validation
     if (!title) return res.status(400).json({ message: 'Title required' });
 
     // Permission: Receptionist and Manager can create tasks; Housekeeping can create personal tasks
     if (!['Receptionist', 'Manager', 'Housekeeping'].includes(req.user.role)) return res.status(403).json({ message: 'Forbidden' });
 
-    const doc = new Task({ title, description, priority, category, location, tags, createdBy: req.user.id, status: 'Pending' });
+    const doc = new Task({ title, description, priority, category, location, roomId, tags, createdBy: req.user.id, status: 'Pending' });
 
     if (dueDate) doc.dueDate = new Date(dueDate);
 

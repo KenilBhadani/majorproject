@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import "../Componentcss/Registration.css";
 
@@ -18,6 +18,13 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  useEffect(() => {
+    const pendingEmail = String(localStorage.getItem("pendingMembershipEmail") || "").trim();
+    if (pendingEmail) {
+      setForm((prev) => ({ ...prev, email: pendingEmail }));
+    }
+  }, []);
 
   // ================= HANDLE INPUT CHANGE =================
   const handleChange = (e) => {
@@ -76,6 +83,7 @@ export default function Register() {
       if (!res.ok) throw new Error(data.message || "Registration failed");
 
       setSuccess("Account created successfully! Redirecting to login...");
+      localStorage.removeItem("pendingMembershipEmail");
       setForm({
         name: "",
         email: "",

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  BedDouble, 
-  CalendarCheck, 
-  Users, 
-  ClipboardList, 
-  ChevronLeft,
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  BedDouble,
+  CalendarCheck,
+  Users,
+  ClipboardList,
   Clock,
   LayoutGrid
 } from 'lucide-react';
@@ -13,8 +12,22 @@ import {
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const StaffDashboard = () => {
+  const navigate = useNavigate();
+
   // use staffUser if available, fallback to old user key
   const user = JSON.parse(localStorage.getItem('staffUser') || localStorage.getItem('user') || 'null');
+
+  // 🔄 Role-based redirection
+  useEffect(() => {
+    if (user?.role === 'Receptionist') {
+      navigate('/staff/receptionist', { replace: true });
+    } else if (user?.role === 'Housekeeping') {
+      navigate('/staff/housekeeping', { replace: true });
+    } else if (user?.role === 'Manager') {
+      navigate('/staff/manager', { replace: true });
+    }
+  }, [user, navigate]);
+
   const [time, setTime] = useState(new Date());
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +67,11 @@ const StaffDashboard = () => {
           throw new Error(msg);
         }
 
-        setStats(data?.stats || { availableRooms: 0, checkInsToday: 0, activeGuests: 0, pendingTasks: 0, occupancy: 0 });
+        // Use backend stats for counts, calculate occupancy properly
+        let stats = data?.stats || { availableRooms: 0, checkInsToday: 0, activeGuests: 0, pendingTasks: 0, totalRooms: 0, occupancy: 0 };
+        stats.occupancy = stats.totalRooms > 0 ? Math.round((stats.activeGuests / stats.totalRooms) * 100) : 0;
+
+        setStats(stats);
       } catch (err) {
         console.error('Panel fetch error', err);
         setError(err.message || 'Failed to load data');
@@ -62,7 +79,13 @@ const StaffDashboard = () => {
         setLoading(false);
       }
     };
+    
     fetchPanel();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchPanel, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const statCards = [
@@ -96,15 +119,6 @@ const StaffDashboard = () => {
       {/* Top Action Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <div className="flex items-center gap-4">
-          {/* THE BUTTON TO GO BACK TO PANEL */}
-          <Link 
-            to="/staff/panel" 
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all font-semibold text-sm group"
-          >
-            <ChevronLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-            Back to Panel
-          </Link>
-          <div className="h-8 w-[1px] bg-slate-200 hidden md:block"></div>
           <div className="hidden sm:block">
             <h1 className="text-lg font-bold text-slate-800">Main Dashboard</h1>
           </div>
@@ -124,7 +138,7 @@ const StaffDashboard = () => {
         <div className="relative z-10">
           <h2 className="text-3xl font-bold">Welcome back, {user?.name || 'Staff'}!</h2>
           <p className="text-blue-100 mt-2 max-w-md">
-            The hotel is currently at 82% occupancy. You have 3 urgent maintenance tasks pending for this shift.
+            The hotel has {stats?.totalRooms || 0} total rooms and is currently at {Math.round(stats?.occupancy || 0)}% occupancy. You have {stats?.pendingTasks || 0} urgent maintenance tasks pending for this shift.
           </p>
         </div>
         {/* Decorative Background Circles */}
@@ -168,7 +182,7 @@ const StaffDashboard = () => {
 
 // Reusable Menu Card Component
 const MenuCard = ({ to, title, desc, icon, color }) => (
-  <Link to={to} className="group p-1 bg-gradient-to-r hover:from-blue-500 hover:to-indigo-500 rounded-2xl transition-all duration-300">
+  <Link to={to} className={`group p-1 bg-gradient-to-r hover:from-${color}-500 hover:to-${color}-600 rounded-2xl transition-all duration-300`}>
     <div className="bg-white p-6 rounded-[14px] h-full transition-all group-hover:bg-white/90">
       <div className={`mb-4 text-${color}-600`}>{icon}</div>
       <h3 className="text-xl font-bold text-slate-800">{title}</h3>

@@ -1,21 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, BedDouble, CalendarCheck, 
-  Users, ClipboardList, BarChart3, LogOut, Search, Bell, Menu, X 
+  Users, ClipboardList, BarChart3, LogOut, Search, Bell, Menu, X, Sparkles, Wrench
 } from 'lucide-react';
 
 const StaffLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleNotificationClick = () => {
+    const next = !showNotifications;
+    setShowNotifications(next);
+    if (next) {
+      localStorage.setItem('staffNotifSeenAt', String(Date.now()));
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }
+  };
+
+  const markAllAsRead = () => {
+    localStorage.setItem('staffNotifSeenAt', String(Date.now()));
+    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+    setShowNotifications(false);
+  };
 
   // Get dynamic user data from localStorage (support new key `staffUser` and fallback to old `user`)
   const user = JSON.parse(localStorage.getItem('staffUser') || localStorage.getItem('user') || 'null') || { name: 'Staff Member', role: 'Staff' };
 
   const handleLogout = async () => {
     try {
-      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/logout`, { credentials: 'include' });
+      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/staff/auth/logout`, { credentials: 'include' });
     } catch (e) {
       // ignore
     }
@@ -27,12 +51,13 @@ const StaffLayout = () => {
 
   // Define all possible menu items and attach allowed roles
   const allMenuItems = [
-    { path: '/staff/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> , roles: ['Housekeeping','Receptionist','Manager']},
-    { path: '/staff/rooms', name: 'Room Status', icon: <BedDouble size={20} />, roles: ['Housekeeping','Manager'] },
-    { path: '/staff/bookings', name: 'Bookings', icon: <CalendarCheck size={20} />, roles: ['Receptionist','Manager'] },
-    { path: '/staff/guests', name: 'Guests', icon: <Users size={20} />, roles: ['Receptionist','Manager'] },
-    { path: '/staff/tasks', name: 'Tasks', icon: <ClipboardList size={20} />, roles: ['Housekeeping','Manager'] },
-    { path: '/staff/reports', name: 'Reports', icon: <BarChart3 size={20} />, roles: ['Manager'] },
+    { path: '/staff/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> , roles: ['Receptionist','Manager']},
+    { path: '/staff/housekeeping', name: 'Housekeeping', icon: <Sparkles size={20} />, roles: ['Housekeeping'] },
+    { path: '/staff/rooms', name: 'Room Status', icon: <BedDouble size={20} />, roles: ['Receptionist'] },
+    { path: '/staff/bookings', name: 'Bookings', icon: <CalendarCheck size={20} />, roles: ['Receptionist'] },
+    { path: '/staff/checkinout', name: 'Check-in/Out', icon: <Users size={20} />, roles: ['Receptionist'] },
+    { path: '/staff/guests', name: 'Guests', icon: <Users size={20} />, roles: ['Receptionist'] },
+    { path: '/staff/maintenance', name: 'Maintenance', icon: <Wrench size={20} />, roles: ['Maintenance', 'Manager', 'Admin'] },
   ];
 
   // Filter menu based on the logged-in staff role
@@ -42,6 +67,71 @@ const StaffLayout = () => {
     const current = menuItems.find(item => item.path === location.pathname);
     return current ? current.name : 'Staff Portal';
   };
+
+  useEffect(() => {
+    if (!user || user.role !== 'Receptionist') return;
+    let active = true;
+    const fetchPanelAndBuildNotifications = async () => {
+      try {
+        const res = await fetch(`${API}/api/staff/panel`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const lastSeen = Number(localStorage.getItem('staffNotifSeenAt') || 0);
+        const toDayStr = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isToday = (d) => new Date(d).toDateString() === new Date().toDateString();
+        const list = [];
+        (data.bookings || []).forEach(b => {
+          if (b.bookingStatus === 'Confirmed' && isToday(b.checkIn)) {
+            list.push({
+              id: `arrive-${b._id}`,
+              type: 'arrival',
+              message: `Arrival today: ${b.firstName} ${b.lastName}`,
+              time: toDayStr(b.checkIn),
+              ts: new Date(b.checkIn).getTime()
+            });
+          }
+          if (b.paymentMethod === 'Cash' && b.bookingStatus === 'Pending') {
+            list.push({
+              id: `cash-${b._id}`,
+              type: 'cash',
+              message: `Cash pending: ${b.firstName} ${b.lastName} • Rs.${b.totalAmount || 0}`,
+              time: 'Pending',
+              ts: Date.now() - 1000 // treat as recent
+            });
+          }
+          if (b.bookingStatus === 'Checked-in' && isToday(b.actualCheckIn || b.checkIn)) {
+            list.push({
+              id: `checkin-${b._id}`,
+              type: 'checkin',
+              message: `Checked-in: ${b.firstName} ${b.lastName}`,
+              time: toDayStr(b.actualCheckIn || b.checkIn),
+              ts: new Date(b.actualCheckIn || b.checkIn).getTime()
+            });
+          }
+          if (b.bookingStatus === 'Checked-out' && isToday(b.checkOut)) {
+            list.push({
+              id: `checkout-${b._id}`,
+              type: 'checkout',
+              message: `Checked-out: ${b.firstName} ${b.lastName}`,
+              time: toDayStr(b.checkOut),
+              ts: new Date(b.checkOut).getTime()
+            });
+          }
+        });
+        // Sort newest first
+        list.sort((a, b) => b.ts - a.ts);
+        const withRead = list.map(n => ({ ...n, read: n.ts <= lastSeen }));
+        if (active) setNotifications(withRead.slice(0, 20));
+      } catch (e) {
+        // silent fail
+      }
+    };
+    fetchPanelAndBuildNotifications();
+    const id = setInterval(fetchPanelAndBuildNotifications, 60000);
+    return () => { active = false; clearInterval(id); };
+  }, [user?.role, API]);
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
@@ -144,21 +234,57 @@ const StaffLayout = () => {
           </div>
 
           <div className="flex items-center gap-3 lg:gap-6">
-            {/* Search Bar - Hidden on small mobile */}
-            <div className="hidden md:flex items-center bg-slate-100 rounded-xl px-4 py-2.5 border border-transparent focus-within:border-blue-400 focus-within:bg-white focus-within:shadow-sm transition-all">
-              <Search size={18} className="text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Search anything..." 
-                className="bg-transparent border-none focus:ring-0 text-sm w-48 ml-2 outline-none text-slate-600 placeholder:text-slate-400"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-4 lg:pl-6">
-              <button className="relative p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all group">
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-4 lg:pl-6 relative">
+              <button 
+                onClick={handleNotificationClick}
+                className="relative p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all group"
+                title="Notifications"
+              >
                 <Bell size={22} />
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white group-hover:animate-ping"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] leading-[18px] text-center border-2 border-white">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
+
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <h3 className="font-bold text-slate-800">Notifications</h3>
+                    <div className="flex gap-2 text-xs">
+                      {unreadCount > 0 && (
+                        <button onClick={markAllAsRead} className="text-blue-600 hover:underline">Mark read</button>
+                      )}
+                      <button onClick={clearNotifications} className="text-slate-400 hover:text-rose-500">Clear</button>
+                    </div>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {notifications.length > 0 ? (
+                      notifications.map(notification => (
+                        <div key={notification.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors flex gap-3 ${!notification.read ? 'bg-blue-50/30' : ''}`}>
+                          <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${!notification.read ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                          <div>
+                            <p className={`text-sm ${!notification.read ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">{notification.time}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-slate-400">
+                        <Bell size={24} className="mx-auto mb-2 opacity-20" />
+                        <p className="text-sm">No new notifications</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
+                    <Link to="/staff/bookings" className="text-xs font-medium text-blue-600 hover:text-blue-800">Go to Bookings</Link>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>

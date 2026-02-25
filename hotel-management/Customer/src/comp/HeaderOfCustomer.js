@@ -13,7 +13,7 @@ export default function HeaderOfCustomer() {
 
   const navLinks = [
     { name: "Home", path: "/" },
-    { name: "About", path: "/expo" },
+    { name: "About", path: "/aboutpage" },
     { name: "Contact Us", path: "/contact" },
     { name: "Booking", path: "/booking" },
   ];

@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import "../Admin/Manage_Room.css";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -272,6 +271,41 @@ function ManageRoom() {
     }
   }
 
+  async function toggleStatus(room) {
+    const newStatus = room.status === "active" ? "inactive" : "active";
+    // Optimistic update
+    setRooms(prev => prev.map(r => r._id === room._id ? { ...r, status: newStatus } : r));
+
+    try {
+      const fd = new FormData();
+      fd.append("status", newStatus);
+
+      const res = await fetch(`${API}/api/admin/rooms/${room._id}`, {
+        method: "PUT",
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: fd
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update status");
+      }
+      
+      const updatedRoom = await res.json();
+      // Verify server actually updated it
+      if (updatedRoom.status !== newStatus) {
+         throw new Error("Server did not save the status change. Please restart the backend server.");
+      }
+    } catch (err) {
+      console.error("Error updating status:", err);
+      // Revert on error
+      setRooms(prev => prev.map(r => r._id === room._id ? { ...r, status: room.status } : r));
+      alert(err.message || "Failed to update status");
+    }
+  }
+
   // cleanup object URLs when previews change / component unmounts
   useEffect(() => {
     return () => {
@@ -369,7 +403,6 @@ function ManageRoom() {
       <div className="main" ref={mainRef}>
         <div className="top-bar">
           <h2>Manage Rooms</h2>
-          <button className="logout-btn">Logout</button>
         </div>
 
         {error && (
@@ -438,6 +471,7 @@ function ManageRoom() {
                 <tr>
                   <th>Image</th>
                   <th>Title</th>
+                  <th>Status</th>
                   <th>Room Nos.</th>
                   <th>Size</th>
                   <th>Capacity</th>
@@ -458,6 +492,19 @@ function ManageRoom() {
                       )}
                     </td>
                     <td>{highlight(room.title || "Untitled Room", query)}</td>
+                    <td>
+                      <label className="switch">
+                        <input 
+                          type="checkbox" 
+                          checked={room.status === "active"} 
+                          onChange={() => toggleStatus(room)} 
+                        />
+                        <span className="slider"></span>
+                      </label>
+                      <div style={{ fontSize: 11, color: room.status === 'active' ? '#16a34a' : '#9ca3af', marginTop: 4 }}>
+                        {room.status === 'active' ? 'Active' : 'Hidden'}
+                      </div>
+                    </td>
                     <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(room.roomNumbers || []).map(r => r.number).join(', ') || '—'}</td>
                     <td>{room.size ? `${room.size} m²` : "N/A"}</td>
                     <td>{room.capacity ? `${room.capacity} Guests` : "N/A"}</td>

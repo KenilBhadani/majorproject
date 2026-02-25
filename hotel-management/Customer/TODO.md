@@ -1,13 +1,19 @@
-# TODO: Fetch Check-in and Check-out Dates from RoomCard.js in Bookingcus.js
+# TODO: Implement Room Instance Creation on Admin Room Addition
 
-## Steps Completed:
+## Completed Tasks
 
-1. ✅ Modified the useEffect in Bookingcus.js to read searchParams from URLSearchParams(location.search), similar to RoomCard.js.
-2. ✅ Set searchParams state to the object parsed from URL params (checkIn, checkOut, roomType, guests).
-3. ✅ Update sessionStorage with the URL-based searchParams for persistence.
-4. ✅ Kept room loading logic unchanged (from location.state or sessionStorage).
+- [x] Import createRoomInstancesForListing utility in adminRooms.js
+- [x] Call createRoomInstancesForListing after creating a new room in the POST route
+- [x] Room instances will be created based on the totalRooms quantity provided in admin side
 
-## Remaining Steps:
+## Pending Tasks
 
-5. Test the booking flow to ensure dates are correctly fetched and displayed on the right side.
-6. Verify that on page refresh, dates are still available via sessionStorage.
+- [ ] Test the functionality by adding a room in admin side and verify room instances are created
+- [ ] Handle updates to totalRooms in the PUT route (if needed for adjusting instances)
+- [ ] Consider edge cases like deleting rooms and cleaning up instances
+
+## Notes
+
+- When admin adds a room with totalRooms = 5, 5 room instances will be created automatically
+- Each instance has a unique roomNumber starting from 1
+- Instances are linked to the roomListing via roomListing field

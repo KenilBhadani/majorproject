@@ -1,50 +1,77 @@
-import { useEffect, useState, useMemo } from "react";
-import Header2 from "./Header2";
+// src/pages/MyBookingPage.js
+import React, { useEffect, useState } from "react";
+import HeaderOfCustomer from "./HeaderOfCustomer";
 import Footer from "./footer";
-import {
-  Calendar,
-  Loader2,
-  MapPin,
-  Clock,
-  CheckCircle2,
-  Star,
-  Info,
-} from "lucide-react";
+import "../Componentcss/Mybooking.css";
 
-export default function MyBookingPage() {
-  const API_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
+// Placeholder if no image is available
+const PLACEHOLDER =
+  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+
+// Helper: safely get the room image URL
+function getRoomImageSrc(room) {
+  if (!room || !room.images || room.images.length === 0) return PLACEHOLDER;
+
+  const img = room.images[0];
+  if (img.startsWith("http://") || img.startsWith("https://")) return img;
+
+  const safeName = String(img).trim().replace(/^\/+/, "").replace(/^uploads\//, "");
+  const base = API_BASE.replace(/\/$/, "");
+  return `${base}/uploads/${encodeURIComponent(safeName)}`;
+}
+
+export default function MyBookingPage({ initialGuestEmail = "" }) {
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("current");
-  const [cancellingId, setCancellingId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [mode, setMode] = useState("mine"); // "mine" | "history"
+  const [refreshFlag, setRefreshFlag] = useState(0);
+  const [reviewDrafts, setReviewDrafts] = useState({});
+  const [reviewSubmitting, setReviewSubmitting] = useState({});
+  const [reviewStatus, setReviewStatus] = useState({});
+  const [reviewSubmitted, setReviewSubmitted] = useState({});
+  const [reviewOpen, setReviewOpen] = useState({});
 
-  const [reviewingId, setReviewingId] = useState(null);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState("");
+  // Helper to get auth info from localStorage
+  const getAuthInfo = () => {
+    const token = localStorage.getItem("token") || localStorage.getItem("adminToken");
+    return { token };
+  };
 
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [bookingToCancel, setBookingToCancel] = useState(null);
-
-  /* ================= FETCH BOOKINGS ================= */
   const fetchBookings = async () => {
     setLoading(true);
+    setError("");
     try {
-      const token = localStorage.getItem("token");
-      const email = localStorage.getItem("guestEmail");
+      const { token } = getAuthInfo();
+      const url = `${API_BASE}/api/bookings/my`;
+      const options = { method: "GET", headers: {} };
+      if (token) {
+        options.headers.Authorization = `Bearer ${token}`;
+      } else {
+        options.credentials = "include";
+      }
 
-      const url = token
-        ? `${API_URL}/api/bookings/my`
-        : `${API_URL}/api/bookings/search?email=${email}`;
+      const res = await fetch(url, options);
+      const text = await res.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = text;
+      }
 
-      const res = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      if (!res.ok) {
+        const msg = data && data.error ? data.error : `Server error: ${res.status}`;
+        throw new Error(msg);
+      }
 
-      const data = await res.json();
-      setBookings(Array.isArray(data.bookings) ? data.bookings : []);
+      const normalized = Array.isArray(data) ? data : [];
+      setBookings(normalized);
     } catch (err) {
-      console.error("Fetch error:", err);
+      console.error("Fetch My Bookings Error:", err);
+      setError(err.message || "Unable to load bookings. Please try again.");
       setBookings([]);
     } finally {
       setLoading(false);
@@ -53,241 +80,332 @@ export default function MyBookingPage() {
 
   useEffect(() => {
     fetchBookings();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshFlag]);
 
-  /* ================= FILTER BOOKINGS ================= */
-  const filteredBookings = useMemo(() => {
-    const now = new Date();
+  const getBookingDate = (booking) => {
+    if (booking?.checkOut) return new Date(booking.checkOut);
+    if (booking?.checkIn) return new Date(booking.checkIn);
+    return null;
+  };
 
-    return bookings.filter((b) => {
-      const status = b.status?.toLowerCase();
-      const checkout = new Date(b.checkOut);
+  const isPastBooking = (booking) => {
+    if (booking?.bookingStatus === "Cancelled") return true;
+    const endDate = getBookingDate(booking);
+    if (!endDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return endDate < today;
+  };
 
-      if (activeTab === "current") {
-        return (
-          ["confirmed", "paid", "pending"].includes(status) &&
-          checkout >= now
-        );
-      }
+  const visibleBookings =
+    mode === "history"
+      ? bookings.filter(isPastBooking)
+      : bookings.filter((b) => !isPastBooking(b));
 
-      return status === "cancelled" || checkout < now;
-    });
-  }, [bookings, activeTab]);
-
-  /* ================= CANCEL BOOKING ================= */
-  const handleCancel = async (id) => {
-    setCancellingId(id);
-    const token = localStorage.getItem("token");
-
+  // Cancel booking
+  const cancelBooking = async (bookingId) => {
+    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch(`${API_URL}/api/bookings/${id}/cancel`, {
+      const { token } = getAuthInfo();
+      const url = `${API_BASE}/api/bookings/${bookingId}/cancel`;
+      const options = {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+        headers: { "Content-Type": "application/json" },
+        credentials: token ? undefined : "include",
+      };
+      if (token) options.headers.Authorization = `Bearer ${token}`;
 
-      if (!res.ok) throw new Error("Cancel failed");
-
-      await fetchBookings();
-      setActiveTab("history");
+      const res = await fetch(url, options);
+      const body = await res.json();
+      if (!res.ok) {
+        const msg = body && body.error ? body.error : `Cancel failed: ${res.status}`;
+        throw new Error(msg);
+      }
+      setRefreshFlag((f) => f + 1);
     } catch (err) {
-      console.error("Cancel error:", err);
-      alert("Failed to cancel booking");
+      console.error("Cancel booking error:", err);
+      setError(err.message || "Cancel failed. Try again.");
     } finally {
-      setCancellingId(null);
+      setLoading(false);
     }
   };
 
-  /* ================= SUBMIT REVIEW ================= */
-  const submitReview = async (id) => {
-    try {
-      if (!comment.trim()) return alert("Please write a comment");
+  const updateReviewDraft = (bookingId, field, value) => {
+    setReviewDrafts((prev) => ({
+      ...prev,
+      [bookingId]: {
+        rating: prev[bookingId]?.rating ?? 5,
+        comment: prev[bookingId]?.comment ?? "",
+        [field]: value,
+      },
+    }));
+  };
 
-      const res = await fetch(`${API_URL}/api/rooms/review`, {
+  const submitReview = async (bookingId) => {
+    const draft = reviewDrafts[bookingId] || { rating: 5, comment: "" };
+    const rating = Number(draft.rating);
+
+    if (!rating || rating < 1 || rating > 5) {
+      setReviewStatus((prev) => ({
+        ...prev,
+        [bookingId]: { type: "error", text: "Please select a rating between 1 and 5." },
+      }));
+      return;
+    }
+
+    setReviewSubmitting((prev) => ({ ...prev, [bookingId]: true }));
+    setReviewStatus((prev) => ({ ...prev, [bookingId]: { type: "", text: "" } }));
+
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId: id, rating, comment }),
+        body: JSON.stringify({
+          bookingId,
+          rating,
+          comment: (draft.comment || "").trim(),
+        }),
       });
 
-      if (!res.ok) throw new Error("Review failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to submit review");
+      }
 
-      alert("Thank you for your review!");
-      setReviewingId(null);
-      setComment("");
-      setRating(5);
-      fetchBookings();
+      setReviewSubmitted((prev) => ({ ...prev, [bookingId]: true }));
+      setReviewOpen((prev) => ({ ...prev, [bookingId]: true }));
+      setReviewStatus((prev) => ({
+        ...prev,
+        [bookingId]: { type: "success", text: "Review submitted successfully." },
+      }));
     } catch (err) {
-      console.error(err);
-      alert("Review submission failed");
+      setReviewStatus((prev) => ({
+        ...prev,
+        [bookingId]: { type: "error", text: err.message || "Failed to submit review." },
+      }));
+    } finally {
+      setReviewSubmitting((prev) => ({ ...prev, [bookingId]: false }));
     }
   };
 
-  /* ================= STATUS BADGE ================= */
-  const getStatusStyle = (status) => {
-    switch (status?.toLowerCase()) {
-      case "cancelled":
-        return "bg-red-600 text-white";
-      case "paid":
-      case "confirmed":
-        return "bg-green-600 text-white";
-      case "pending":
-        return "bg-yellow-500 text-white";
-      default:
-        return "bg-blue-600 text-white";
-    }
-  };
+  const renderStarPicker = (bookingId) => {
+    const currentRating = Number(reviewDrafts[bookingId]?.rating ?? 5);
 
-  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
+      <div className="star-picker" role="radiogroup" aria-label="Select rating">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const active = star <= currentRating;
+          return (
+            <button
+              key={star}
+              type="button"
+              className={`star-btn ${active ? "active" : ""}`}
+              onClick={() => updateReviewDraft(bookingId, "rating", star)}
+              disabled={reviewSubmitted[bookingId] || reviewSubmitting[bookingId]}
+              aria-label={`${star} star${star > 1 ? "s" : ""}`}
+            >
+              {"\u2605"}
+            </button>
+          );
+        })}
+        <span className="star-value">{currentRating}/5</span>
       </div>
     );
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      <Header2 />
-
-      <main className="max-w-7xl mx-auto px-6 py-16">
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between gap-8 mb-14">
-          <div>
-            <h1 className="text-5xl font-black uppercase">My Stays</h1>
-            <p className="flex items-center gap-2 text-slate-500 mt-2">
-              <Info size={16} className="text-blue-500" />
-              Viewing your {activeTab} bookings
-            </p>
+    <div className="page-wrapper">
+      <header className="app-header">
+        <HeaderOfCustomer />
+      </header>
+      <main className="main-content">
+        <div className="mybooking-container">
+          <div className="mybooking-header">
+            <h1 className="header-title">{mode === "history" ? "Booking History" : "My Bookings"}</h1>
           </div>
 
-          <div className="inline-flex bg-slate-200 rounded-full p-1">
-            {["current", "history"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-6 py-2 rounded-full text-xs font-bold uppercase flex items-center gap-2 ${
-                  activeTab === tab
-                    ? "bg-white text-blue-600 shadow"
-                    : "text-slate-600"
-                }`}
-              >
-                {tab === "current" ? <Clock size={14} /> : <CheckCircle2 size={14} />}
-                {tab}
-              </button>
-            ))}
+          <div className="tabs-container">
+            <button
+              className={`tab-btn ${mode === "mine" ? "active" : ""}`}
+              onClick={() => {
+                setMode("mine");
+                setError("");
+              }}
+            >
+              My Bookings
+            </button>
+            <button
+              className={`tab-btn ${mode === "history" ? "active" : ""}`}
+              onClick={() => {
+                setMode("history");
+                setError("");
+              }}
+            >
+              History
+            </button>
           </div>
-        </div>
 
-        {/* BOOKINGS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {filteredBookings.length === 0 && (
-            <div className="bg-white rounded-3xl py-32 text-center border border-dashed col-span-full">
-              <Calendar className="mx-auto text-slate-300 mb-4" size={56} />
-              <h3 className="text-lg font-bold uppercase">
-                No {activeTab} bookings
-              </h3>
+          <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
+            <button
+              className="btn btn-details"
+              onClick={() => {
+                setError("");
+                setRefreshFlag((f) => f + 1);
+              }}
+              disabled={loading}
+            >
+              Refresh
+            </button>
+            <button
+              className="btn btn-dark"
+              onClick={() => {
+                setBookings([]);
+                setError("");
+              }}
+            >
+              Clear
+            </button>
+          </div>
+
+          {loading && <p>Loading bookings...</p>}
+          {error && <p style={{ color: "crimson" }}>{error}</p>}
+
+          {!loading && !error && visibleBookings.length === 0 && (
+            <div className="empty-state">
+              <p>{mode === "history" ? "No past bookings found." : "No upcoming bookings found."}</p>
             </div>
           )}
 
-          {filteredBookings.map((b) => {
-            const status = b.status?.toLowerCase();
-            const canCancel =
-              ["confirmed", "paid", "pending"].includes(status) &&
-              new Date(b.checkOut) >= new Date();
-
-            const roomTitle = b.roomTitle || b.roomId?.title || "Room";
-            const roomImage =
-              b.roomImage ||
-              b.roomId?.images?.[0] ||
-              "/no-room.jpg";
-
-            return (
-              <div
-                key={b._id}
-                className="bg-white rounded-[40px] overflow-hidden shadow-sm border hover:shadow-xl transition"
-              >
-                {/* IMAGE */}
-                <div className="relative h-60">
-                  <img
-                    src={`${API_URL}/${roomImage.replace(/^\/+/, "")}`}
-                    className="w-full h-full object-cover"
-                    alt=""
-                    onError={(e) => (e.target.src = "/no-room.jpg")}
-                  />
-                  <span
-                    className={`absolute top-6 right-6 px-4 py-1 rounded-full text-[10px] font-black uppercase ${getStatusStyle(
-                      b.status
-                    )}`}
-                  >
-                    {b.status}
-                  </span>
-                </div>
-
-                {/* DETAILS */}
-                <div className="p-8 flex flex-col h-full">
-                  <h3 className="text-2xl font-black uppercase mb-4">
-                    {roomTitle}
-                  </h3>
-
-                  <p className="flex items-center gap-2 text-blue-600 text-xs font-bold uppercase mb-4">
-                    <MapPin size={12} /> RoyalPark
-                  </p>
-
-                  <div className="bg-slate-50 p-5 rounded-3xl mb-6 grid grid-cols-2 text-center">
-                    <div>
-                      <p className="text-[10px] text-slate-400 uppercase">Check In</p>
-                      <p className="font-black">
-                        {new Date(b.checkIn).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="border-l">
-                      <p className="text-[10px] text-slate-400 uppercase">Check Out</p>
-                      <p className="font-black">
-                        {new Date(b.checkOut).toLocaleDateString()}
-                      </p>
+          {!loading && !error && visibleBookings.length > 0 && (
+            <div className="bookings-grid">
+              {visibleBookings.map((b) => (
+                <div key={b._id} className="booking-card">
+                  <div className="card-image-wrapper">
+                    <img
+                      src={getRoomImageSrc(b.roomId)}
+                      alt={b.roomId?.title || "Room"}
+                      className="card-img"
+                    />
+                    <div className={`status-badge status-${(b.bookingStatus || "default").toLowerCase()}`}>
+                      {b.bookingStatus || "Unknown"}
                     </div>
                   </div>
-
-                  <div className="mt-auto flex justify-between items-end border-t pt-4">
-                    <div>
-                      <p className="text-[10px] text-slate-400 uppercase">
-                        Total Amount
-                      </p>
-                      <p className="text-2xl font-black">₹{b.amount}</p>
+                  <div className="card-content">
+                    <h3 className="hotel-name">{b.roomId?.title || b.roomTitle || "Room"}</h3>
+                    <p className="hotel-location">{b.email}</p>
+                    <div className="booking-details">
+                      <div className="detail-row">
+                        <span>Check-in:</span>
+                        <span className="detail-value">
+                          {b.checkIn ? new Date(b.checkIn).toLocaleDateString() : "—"}
+                        </span>
+                      </div>
+                      <div className="detail-row">
+                        <span>Check-out:</span>
+                        <span className="detail-value">
+                          {b.checkOut ? new Date(b.checkOut).toLocaleDateString() : "—"}
+                        </span>
+                      </div>
+                      <div className="detail-row">
+                        <span>Nights:</span>
+                        <span className="detail-value">{b.nights ?? "—"}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span>Payment:</span>
+                        <span className="detail-value">{b.paymentStatus}</span>
+                      </div>
                     </div>
+                    <div className="detail-footer">
+                      <div className="price-tag">${b.totalAmount ?? "—"}</div>
+                    </div>
+                    <div className="card-actions">
+                      {mode === "mine" && b.bookingStatus !== "Cancelled" && (
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => cancelBooking(b._id)}
+                          disabled={loading}
+                        >
+                          Cancel
+                        </button>
+                      )}
 
-                    {activeTab === "current" && canCancel && (
-                      <button
-                        onClick={() => {
-                          setBookingToCancel(b._id);
-                          setShowCancelModal(true);
-                        }}
-                        disabled={cancellingId === b._id}
-                        className="bg-slate-900 text-white px-6 py-2 rounded-2xl text-xs font-black hover:bg-red-600"
-                      >
-                        Cancel
-                      </button>
-                    )}
-
-                    {activeTab === "history" && (
-                      <button
-                        onClick={() => setReviewingId(b._id)}
-                        className="bg-emerald-600 text-white px-6 py-2 rounded-2xl text-xs font-black"
-                      >
-                        <Star size={14} /> Review
-                      </button>
-                    )}
+                      {mode === "history" && b.bookingStatus !== "Cancelled" && (
+                        <div className="review-box">
+                          {!reviewOpen[b._id] ? (
+                            <button
+                              className="btn review-open-btn"
+                              onClick={() => setReviewOpen((prev) => ({ ...prev, [b._id]: true }))}
+                            >
+                              Write a Review
+                            </button>
+                          ) : (
+                            <div className="review-form-card">
+                              <h4 className="review-title">Rate Your Stay</h4>
+                              <div className="review-fields">
+                                {renderStarPicker(b._id)}
+                                <textarea
+                                  rows="3"
+                                  placeholder="Share your experience..."
+                                  value={reviewDrafts[b._id]?.comment ?? ""}
+                                  onChange={(e) => updateReviewDraft(b._id, "comment", e.target.value)}
+                                  className="review-input review-textarea"
+                                  disabled={reviewSubmitted[b._id] || reviewSubmitting[b._id]}
+                                />
+                              </div>
+                              <div className="review-actions">
+                                {!reviewSubmitted[b._id] && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-details"
+                                    onClick={() =>
+                                      setReviewOpen((prev) => ({ ...prev, [b._id]: false }))
+                                    }
+                                    disabled={reviewSubmitting[b._id]}
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={() => submitReview(b._id)}
+                                  disabled={reviewSubmitted[b._id] || reviewSubmitting[b._id]}
+                                >
+                                  {reviewSubmitted[b._id]
+                                    ? "Review Submitted"
+                                    : reviewSubmitting[b._id]
+                                      ? "Submitting..."
+                                      : "Submit Review"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {reviewStatus[b._id]?.text && (
+                            <p
+                              className={
+                                reviewStatus[b._id].type === "success"
+                                  ? "review-msg review-success"
+                                  : "review-msg review-error"
+                              }
+                            >
+                              {reviewStatus[b._id].text}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )}
         </div>
       </main>
-
-      <Footer />
+      <footer className="app-footers">
+        <Footer />
+      </footer>
     </div>
   );
 }

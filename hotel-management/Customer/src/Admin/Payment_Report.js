@@ -21,39 +21,41 @@ function PaymentReports() {
   const navigate = useNavigate();
   const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
 
-  const [month, setMonth] = useState(
-    new Date().toISOString().slice(0, 7)
-  );
-
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [summary, setSummary] = useState(null);
   const [transactions, setTransactions] = useState([]);
-
-  const [distribution, setDistribution] = useState(null); // { Paid: x, Pending: y }
-  const [distributionBy, setDistributionBy] = useState("amount"); // amount | count
+  const [distribution, setDistribution] = useState(null);
+  const [distributionBy, setDistributionBy] = useState("amount");
   const [trendSeries, setTrendSeries] = useState([]);
   const [trendDays, setTrendDays] = useState(30);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   /* ================= FETCH SUMMARY ================= */
-
   const fetchSummary = useCallback(async () => {
     try {
       const res = await fetch(
         `${API}/api/admin/payments/summary?month=${month}`,
         {
-          credentials: 'include',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          credentials: "include",
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (!res.ok) throw new Error("Failed to load summary");
 
       const data = await res.json();
-      setSummary(data);
+
+      // Normalize backend data
+      const paid = Number(data.paid || 0);
+      const pending = Number(data.pending || 0);
+
+      setSummary({
+        totalRevenue: paid + pending,
+        paidAmount: paid,
+        pendingAmount: pending,
+        totalBookings: Number(data.bookings || 0),
+      });
     } catch (err) {
       setError(err.message || "Failed to load payment summary");
       setSummary(null);
@@ -65,10 +67,7 @@ function PaymentReports() {
     try {
       const res = await fetch(
         `${API}/api/admin/payments/status-distribution?month=${month}&by=${distributionBy}`,
-        {
-          credentials: 'include',
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        { credentials: "include", headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!res.ok) {
@@ -89,7 +88,7 @@ function PaymentReports() {
     try {
       const res = await fetch(
         `${API}/api/admin/payments/trends?days=${trendDays}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { credentials: "include", headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!res.ok) {
@@ -98,8 +97,7 @@ function PaymentReports() {
       }
 
       const data = await res.json();
-      // normalize series -> [{ date, total }]
-      const series = (data.series || []).map(s => ({ date: s._id, total: s.total }));
+      const series = (data.series || []).map((s) => ({ date: s._id, total: s.total }));
       setTrendSeries(series);
     } catch (err) {
       console.error(err);
@@ -108,16 +106,11 @@ function PaymentReports() {
   }, [trendDays, token]);
 
   /* ================= FETCH TRANSACTIONS ================= */
-
   const fetchTransactions = useCallback(async () => {
     try {
       const res = await fetch(
         `${API}/api/admin/payments/transactions?month=${month}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+        { credentials: "include", headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!res.ok) {
@@ -127,13 +120,13 @@ function PaymentReports() {
 
       const data = await res.json();
       setTransactions(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setTransactions([]);
     }
   }, [month, token]);
 
   /* ================= EFFECT ================= */
-
   useEffect(() => {
     if (!token) {
       navigate("/login");
@@ -148,61 +141,19 @@ function PaymentReports() {
   }, [month, fetchSummary, fetchTransactions, fetchDistribution, fetchTrends, trendDays, distributionBy, token, navigate]);
 
   /* ================= VERIFY HANDLER ================= */
+  // Removed verify button handler as it is no longer used in UI
   async function handleVerify(id) {
-    try {
-      const res = await fetch(`${API}/api/admin/payments/verify/${id}`, { method: 'PUT', credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error('Verify failed');
-      alert('Verification completed');
-      // refresh data
-      setLoading(true);
-      await Promise.all([fetchSummary(), fetchTransactions(), fetchDistribution(), fetchTrends()]);
-    } catch (err) {
-      alert(err.message || 'Verify failed');
-    } finally {
-      setLoading(false);
-    }
-  }
-  /* ================= LOGOUT ================= */
-
-  async function handleLogout() {
-    try {
-      await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/logout`, { credentials: 'include' });
-    } catch (e) {}
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
-    navigate("/login");
+    // ... kept for reference or if needed later
   }
 
   return (
     <div className="admin-container">
-      {/* SIDEBAR */}
-      {/* <div className="sidebar">
-        <h1>Admin Panel</h1>
-        <Link to="/admin">Dashboard</Link>
-        <Link to="/admin/manage-room">Manage Room</Link>
-        <Link to="/admin/manage-booking">Manage Bookings</Link>
-        <Link to="/admin/manage-user">Manage User</Link>
-        <Link to="/admin/manage-payment" className="active">
-          Payment & Reports
-        </Link>
-        <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
-        <Link to="/admin/manage-staff">Manage Staff</Link>
-      </div> */}
-
-      {/* MAIN */}
       <div className="main">
         <div className="top-bar">
           <h2>Payment & Reports</h2>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <label>Month</label>
-            <input
-              type="month"
-              value={month}
-              onChange={e => setMonth(e.target.value)}
-            />
-            <button className="logout-btn" onClick={handleLogout}>
-              Logout
-            </button>
+            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
           </div>
         </div>
 
@@ -212,7 +163,6 @@ function PaymentReports() {
         {summary && (
           <div className="card">
             <h3 className="card-title">Monthly Summary</h3>
-
             <div className="form-row">
               <div>
                 <p><b>Total Revenue</b></p>
@@ -220,15 +170,11 @@ function PaymentReports() {
               </div>
               <div>
                 <p><b>Paid Amount</b></p>
-                <h3 style={{ color: "#16a34a" }}>
-                  ₹ {summary.paidAmount}
-                </h3>
+                <h3 style={{ color: "#16a34a" }}>₹ {summary.paidAmount}</h3>
               </div>
               <div>
                 <p><b>Pending Amount</b></p>
-                <h3 style={{ color: "#dc2626" }}>
-                  ₹ {summary.pendingAmount}
-                </h3>
+                <h3 style={{ color: "#dc2626" }}>₹ {summary.pendingAmount}</h3>
               </div>
               <div>
                 <p><b>Total Bookings</b></p>
@@ -238,36 +184,14 @@ function PaymentReports() {
           </div>
         )}
 
-        {/* ===== TRANSACTIONS ===== */}
+        {/* ===== TRANSACTIONS & CHARTS ===== */}
         <div className="card">
           <h3 className="card-title">Payment Overview</h3>
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12 }}>
-            <div>
-              <label>Month</label>
-              <input type="month" value={month} onChange={e => setMonth(e.target.value)} />
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label>Distribution by</label>
-              <select value={distributionBy} onChange={e => setDistributionBy(e.target.value)}>
-                <option value="amount">Amount</option>
-                <option value="count">Count</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label>Trend</label>
-              <button onClick={() => setTrendDays(7)} className={trendDays === 7 ? 'active' : ''}>7d</button>
-              <button onClick={() => setTrendDays(30)} className={trendDays === 30 ? 'active' : ''}>30d</button>
-              <button onClick={() => setTrendDays(90)} className={trendDays === 90 ? 'active' : ''}>90d</button>
-            </div>
-          </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
+            {/* Distribution Pie Chart */}
             <div style={{ background: '#fff', padding: 12, borderRadius: 8 }}>
               <h4 style={{ marginBottom: 8 }}>Status Distribution</h4>
-
               {distribution ? (
                 <ResponsiveContainer width={300} height={220}>
                   <PieChart>
@@ -286,14 +210,12 @@ function PaymentReports() {
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <p>No distribution data</p>
-              )}
+              ) : <p>No distribution data</p>}
             </div>
 
+            {/* Revenue Trend */}
             <div style={{ background: '#fff', padding: 12, borderRadius: 8 }}>
               <h4 style={{ marginBottom: 8 }}>Revenue Trend ({trendDays} days)</h4>
-
               {trendSeries.length > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={trendSeries}>
@@ -304,16 +226,14 @@ function PaymentReports() {
                     <Line type="monotone" dataKey="total" stroke="#6366F1" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
-              ) : (
-                <p>No trend data</p>
-              )}
+              ) : <p>No trend data</p>}
             </div>
           </div>
         </div>
 
+        {/* Recent Transactions Table */}
         <div className="card">
           <h3 className="card-title">Recent Transactions</h3>
-
           {loading ? (
             <p>Loading...</p>
           ) : transactions.length === 0 ? (
@@ -331,29 +251,30 @@ function PaymentReports() {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map(t => (
+                {transactions.map((t) => (
                   <tr key={t._id}>
                     <td>{t.firstName} {t.lastName}</td>
                     <td>₹{t.totalAmount}</td>
                     <td>
-                      <span
-                        className={
-                          t.paymentStatus === "Paid"
-                            ? "available"
-                            : "not-available"
-                        }
+                      {/* Check if marked paid by reception or completed via gateway */}
+                      <span 
+                        className={t.paymentStatus === "Paid" ? "available" : "not-available"}
+                        style={{
+                           backgroundColor: t.paymentStatus === "Paid" ? "#dcfce7" : "#fee2e2",
+                           color: t.paymentStatus === "Paid" ? "#166534" : "#991b1b",
+                           padding: "4px 12px",
+                           borderRadius: "99px",
+                           fontWeight: "bold",
+                           fontSize: "12px"
+                        }}
                       >
                         {t.paymentStatus}
                       </span>
                     </td>
                     <td>{t.bookingStatus}</td>
+                    <td>{new Date(t.createdAt).toLocaleDateString()}</td>
                     <td>
-                      {new Date(t.createdAt).toLocaleDateString()}
-                    </td>
-                    <td>
-                      {t.paymentStatus !== "Paid" && (
-                        <button onClick={() => handleVerify(t._id)}>Verify</button>
-                      )}
+                      {/* Removed Verify Button */}
                     </td>
                   </tr>
                 ))}

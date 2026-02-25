@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import "../Admin/Manage_User.css";
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function ManageUser() {
   const [users, setUsers] = useState([]);
@@ -12,9 +11,10 @@ function ManageUser() {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
 
-  // 🔔 Confirmation modal state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
 
   useEffect(() => {
     fetchUsers();
@@ -23,7 +23,10 @@ function ManageUser() {
   async function fetchUsers() {
     try {
       setLoading(true);
-      const res = await fetch(`${API}/api/admin/users`);
+      const res = await fetch(`${API}/api/admin/users`, {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       setUsers(Array.isArray(data) ? data : []);
       setError("");
@@ -44,13 +47,11 @@ function ManageUser() {
     setQuery("");
   }
 
-  // 👉 Open confirmation modal
   function openConfirm(user) {
     setSelectedUser(user);
     setConfirmOpen(true);
   }
 
-  // ✅ Confirm block / unblock
   async function confirmStatusChange() {
     if (!selectedUser) return;
 
@@ -59,7 +60,11 @@ function ManageUser() {
         `${API}/api/admin/users/${selectedUser._id}/status`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ isActive: !selectedUser.isActive })
         }
       );
@@ -69,7 +74,6 @@ function ManageUser() {
         return;
       }
 
-      // 🔄 Update UI immediately
       setUsers(prev =>
         prev.map(u =>
           u._id === selectedUser._id
@@ -93,23 +97,9 @@ function ManageUser() {
 
   return (
     <div className="admin-container">
-      {/* SIDEBAR */}
-      {/* <div className="sidebar">
-        <h1>Admin Panel</h1>
-        <Link to="/admin">Dashboard</Link>
-        <Link to="/admin/manage-room">Manage Room</Link>
-        <Link to="/admin/manage-booking">Manage Bookings</Link>
-        <Link to="/admin/manage-user" className="active">Manage User</Link>
-        <Link to="/admin/manage-payment">Payment & Reports</Link>
-        <Link to="/admin/dashboard-stats">Dashboard Stats</Link>
-        <Link to="/admin/manage-staff">Manage Staff</Link>
-      </div> */}
-
-      {/* MAIN */}
       <div className="main">
         <div className="top-bar">
           <h2>Manage Users</h2>
-          <button className="logout-btn">Logout</button>
         </div>
 
         {error && <p className="error-text">{error}</p>}
@@ -117,7 +107,6 @@ function ManageUser() {
         <div className="card">
           <h3 className="card-title">User List</h3>
 
-          {/* SEARCH */}
           <div className="search-bar">
             <input
               placeholder="Search user by name..."
@@ -171,7 +160,6 @@ function ManageUser() {
         </div>
       </div>
 
-      {/* ===== CONFIRM MODAL ===== */}
       {confirmOpen && (
         <div className="confirm-overlay">
           <div className="confirm-modal">

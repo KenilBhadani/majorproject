@@ -133,6 +133,34 @@ router.post("/login", async (req, res) => {
   }
 });
 
+/* ================= CHECK EMAIL EXISTS ================= */
+router.get("/check-email", async (req, res) => {
+  try {
+    const email = String(req.query.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await User.findOne({ email }).select("email provider role name");
+    if (!user) {
+      return res.json({ exists: false });
+    }
+
+    return res.json({
+      exists: true,
+      user: {
+        email: user.email,
+        provider: user.provider || "local",
+        role: user.role,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    console.error("Check email error:", error);
+    return res.status(500).json({ message: "Unable to check email" });
+  }
+});
+
 /* ================= GOOGLE LOGIN ================= */
 router.get(
   "/google",
