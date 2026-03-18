@@ -57,13 +57,13 @@ router.get("/panel", verifyStaff, async (req, res) => {
 
     for (const room of roomDocs) {
       totalRooms += room.totalRooms;
-      
+
       // ✅ Count CHECKED-IN guests (occupied rooms)
       const occupiedForRoom = await Booking.countDocuments({
         roomId: room._id,
         bookingStatus: "Checked-in"
       });
-      
+
       // ✅ Count CONFIRMED bookings for TODAY (arriving today or staying through)
       const bookedForRoom = await Booking.countDocuments({
         roomId: room._id,
@@ -71,7 +71,7 @@ router.get("/panel", verifyStaff, async (req, res) => {
         checkIn: { $lte: endOfDay },
         checkOut: { $gte: startOfDay }
       });
-      
+
       // ✅ Calculate available = Total - (Occupied + Booked)
       availableRooms += Math.max(0, room.totalRooms - occupiedForRoom - bookedForRoom);
       occupiedRooms += occupiedForRoom;
@@ -103,7 +103,7 @@ router.get("/panel", verifyStaff, async (req, res) => {
 
     // ✅ Recent bookings (limit to 50 for history)
     // But also include ALL bookings relevant for Today's Check-in/Check-out
-    
+
     const todayBookings = await Booking.find({
       $or: [
         { checkIn: { $gte: startOfDay, $lte: endOfDay }, bookingStatus: 'Confirmed' }, // Check-ins
@@ -116,7 +116,7 @@ router.get("/panel", verifyStaff, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(20)
       .populate('roomId');
-    
+
     // Merge and deduplicate
     const bookingMap = new Map();
     [...todayBookings, ...recentBookings].forEach(b => bookingMap.set(String(b._id), b));
@@ -242,14 +242,14 @@ router.put('/bookings/:id/status', verifyStaff, async (req, res) => {
         $push: { history: { action: 'checkout', by: req.user.id, note: `Checked out by ${req.user.role}`, createdAt: now } }
       });
 
-      // 🔄 AUTOMATED WORKFLOW: Set assigned room instance to CLEANING status after check-out
+      // 🔄 AUTOMATED WORKFLOW: Set assigned room instance to DIRTY status after check-out
       try {
         if (booking.assignedRoomInstance) {
           const roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
           if (roomInstance) {
-            roomInstance.status = 'CLEANING';
+            roomInstance.status = 'DIRTY'; // Changed from CLEANING to DIRTY - rooms need inspection first
             await roomInstance.save();
-            console.log(`[AUTO WORKFLOW] Room ${roomInstance.roomNumber} set to CLEANING after check-out`);
+            console.log(`[AUTO WORKFLOW] Room ${roomInstance.roomNumber} set to DIRTY after check-out`);
           }
         }
       } catch (roomErr) {
@@ -486,10 +486,10 @@ router.get('/guests', verifyStaff, async (req, res) => {
     console.log('[GET GUESTS] Querying ALL bookings');
 
     const guests = await Booking.find(query)
-    .select('firstName lastName email phone bookingStatus roomId assignedRoomNumber checkIn checkOut actualCheckIn')
-    .sort({ checkIn: -1 }) 
-    .limit(300)
-    .populate('roomId', 'title roomType');
+      .select('firstName lastName email phone bookingStatus roomId assignedRoomNumber checkIn checkOut actualCheckIn')
+      .sort({ checkIn: -1 })
+      .limit(300)
+      .populate('roomId', 'title roomType');
 
     console.log(`[GET GUESTS] Found ${guests.length} records`);
 

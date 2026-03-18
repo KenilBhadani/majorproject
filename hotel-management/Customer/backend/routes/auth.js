@@ -18,17 +18,23 @@ router.post("/register", async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.trim();
 
-    const existingUser = await User.findOne({
-      $or: [{ email: normalizedEmail }, { phone }],
-    });
-
-    if (existingUser) {
+    // Check for existing email
+    const existingEmail = await User.findOne({ email: normalizedEmail });
+    if (existingEmail) {
       return res.status(400).json({
-        message:
-          existingUser.email === normalizedEmail
-            ? "Email already registered"
-            : "Phone number already registered",
+        message: "Email already registered",
+        field: "email"
+      });
+    }
+
+    // Check for existing phone
+    const existingPhone = await User.findOne({ phone: normalizedPhone });
+    if (existingPhone) {
+      return res.status(400).json({
+        message: "Phone number already registered",
+        field: "phone"
       });
     }
 
@@ -36,7 +42,7 @@ router.post("/register", async (req, res) => {
     const user = await User.create({
       name,
       email: normalizedEmail,
-      phone,
+      phone: normalizedPhone,
       password,
       provider: "local",
     });
@@ -69,10 +75,14 @@ router.post("/register", async (req, res) => {
   } catch (error) {
     console.error("❌ Register error:", error);
 
+    // Handle MongoDB duplicate key error
     if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ message: "Email or phone already exists" });
+      const field = Object.keys(error.keyPattern)[0];
+      const fieldName = field === 'email' ? 'Email' : 'Phone number';
+      return res.status(400).json({
+        message: `${fieldName} already registered`,
+        field: field
+      });
     }
 
     res.status(500).json({ message: "Registration failed" });
@@ -104,6 +114,11 @@ router.post("/login", async (req, res) => {
     }
 
     if (req.session) {
+      // Clear any existing staff session to prevent cross-role access
+      if (req.session.staff) {
+        delete req.session.staff;
+      }
+
       req.session.user = {
         id: user._id.toString(),
         role: user.role,

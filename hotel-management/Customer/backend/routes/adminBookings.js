@@ -21,7 +21,8 @@ router.get("/recent-bookings", authMiddleware, async (req, res) => {
     const bookings = await Booking.find()
       .populate("roomId") // get room title and info
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     // Format bookings for frontend
     const formatted = bookings.map((b) => ({
@@ -152,6 +153,18 @@ router.put("/:id/checkout", authMiddleware, async (req, res) => {
     booking.bookingStatus = "Checked-out";
     booking.actualCheckOut = new Date();
     await booking.save();
+
+    // Update Room Instance to DIRTY status after checkout
+    if (booking.assignedRoomInstance) {
+      const RoomInstance = require('../models/RoomInstance');
+      const roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
+      if (roomInstance) {
+        roomInstance.status = 'DIRTY';
+        roomInstance.lastStatusUpdate = new Date();
+        await roomInstance.save();
+        console.log(`[ADMIN CHECKOUT] Room ${roomInstance.roomNumber} set to DIRTY`);
+      }
+    }
 
     res.json({ success: true, message: "Booking checked out successfully" });
   } catch (err) {

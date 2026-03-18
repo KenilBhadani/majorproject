@@ -10,12 +10,12 @@ const RoomSearch = ({ filters, setFilters, onSearch }) => {
           <Calendar className="text-amber-600 mr-4" size={20} />
           <div className="flex flex-col flex-1">
             <label className="text-[10px] font-black uppercase text-slate-400">Check In</label>
-            <input type="date" value={filters.checkIn} onChange={e => setFilters({...filters, checkIn: e.target.value})} className="text-sm font-bold focus:outline-none bg-transparent" />
+            <input type="date" value={filters.checkIn} min={new Date().toISOString().split('T')[0]} onChange={e => setFilters({ ...filters, checkIn: e.target.value, checkOut: filters.checkOut && filters.checkOut <= e.target.value ? '' : filters.checkOut })} className="text-sm font-bold focus:outline-none bg-transparent" />
           </div>
           <ArrowRight className="mx-2 text-slate-300" size={16} />
           <div className="flex flex-col flex-1">
             <label className="text-[10px] font-black uppercase text-slate-400">Check Out</label>
-            <input type="date" value={filters.checkOut} onChange={e => setFilters({...filters, checkOut: e.target.value})} className="text-sm font-bold focus:outline-none bg-transparent" />
+            <input type="date" value={filters.checkOut} min={filters.checkIn || new Date().toISOString().split('T')[0]} onChange={e => setFilters({ ...filters, checkOut: e.target.value })} className="text-sm font-bold focus:outline-none bg-transparent" />
           </div>
         </div>
 
@@ -24,7 +24,7 @@ const RoomSearch = ({ filters, setFilters, onSearch }) => {
           <Home className="text-amber-600 mr-4" size={20} />
           <div className="flex flex-col w-full">
             <label className="text-[10px] font-black uppercase text-slate-400">Room Type</label>
-            <select value={filters.roomType} onChange={e => setFilters({...filters, roomType: e.target.value})} className="text-sm font-bold focus:outline-none bg-transparent appearance-none">
+            <select value={filters.roomType} onChange={e => setFilters({ ...filters, roomType: e.target.value })} className="text-sm font-bold focus:outline-none bg-transparent appearance-none">
               <option value="">All Categories</option>
               <option value="Deluxe">Deluxe Room</option>
               <option value="Suite">Executive Suite</option>
@@ -37,7 +37,7 @@ const RoomSearch = ({ filters, setFilters, onSearch }) => {
           <Users className="text-amber-600 mr-4" size={20} />
           <div className="flex flex-col w-full">
             <label className="text-[10px] font-black uppercase text-slate-400">Members</label>
-            <input type="number" min="1" value={filters.members} onChange={e => setFilters({...filters, members: e.target.value})} className="text-sm font-bold focus:outline-none bg-transparent" />
+            <input type="number" min="1" value={filters.members} onChange={e => setFilters({ ...filters, members: e.target.value })} className="text-sm font-bold focus:outline-none bg-transparent" />
           </div>
         </div>
 

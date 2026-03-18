@@ -11,10 +11,10 @@ const createRoomInstancesForListing = require("../utils/createRoomInstances");
 ====================================================== */
 router.get("/", async (req, res) => {
   try {
-    const rooms = await Room.find().sort({ createdAt: -1 });
+    const rooms = await Room.find().sort({ createdAt: -1 }).lean();
     // Map totalRooms to availableRooms for frontend compatibility
     const roomsWithAvailable = rooms.map(room => ({
-      ...room.toObject(),
+      ...room,
       availableRooms: room.totalRooms
     }));
     res.json(roomsWithAvailable);
@@ -56,6 +56,18 @@ router.post("/", upload.array("images", 5), async (req, res) => {
       !standardRate
     ) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // ✅ Check for duplicate title (case-insensitive)
+    const normalizedTitle = title.trim().toLowerCase();
+    const existingRoom = await Room.findOne({
+      title: { $regex: new RegExp(`^${normalizedTitle}$`, 'i') }
+    });
+
+    if (existingRoom) {
+      return res.status(400).json({
+        message: `A room with the title "${title}" already exists. Please use a different title.`
+      });
     }
 
     const room = await Room.create({
@@ -107,6 +119,21 @@ router.put("/:id", upload.array("images", 5), async (req, res) => {
     const room = await Room.findById(req.params.id);
     if (!room) {
       return res.status(404).json({ message: "Room not found" });
+    }
+
+    // ✅ Check for duplicate title when updating (case-insensitive)
+    if (req.body.title) {
+      const normalizedTitle = req.body.title.trim().toLowerCase();
+      const existingRoom = await Room.findOne({
+        title: { $regex: new RegExp(`^${normalizedTitle}$`, 'i') },
+        _id: { $ne: req.params.id } // Exclude current room
+      });
+
+      if (existingRoom) {
+        return res.status(400).json({
+          message: `A room with the title "${req.body.title}" already exists. Please use a different title.`
+        });
+      }
     }
 
     // ✅ Image limit check
@@ -184,44 +211,62 @@ router.put("/:id", upload.array("images", 5), async (req, res) => {
     // ✅ Sync Room Instances if totalRooms changed
     if (req.body.totalRooms || req.body.availableRooms) {
       const newTotal = Number(req.body.totalRooms || req.body.availableRooms);
-      const currentInstances = await RoomInstance.find({ roomListing: room._id }).sort({ createdAt: 1 });
+      const currentInstances = await RoomInstance.find({ roomListing: room._id }).sort({ roomNumber: 1 });
       const currentCount = currentInstances.length;
 
       if (newTotal > currentCount) {
-        // Add more
+        // Add more instances with proper prefix
         const toAdd = newTotal - currentCount;
         const newInstances = [];
-        let lastNum = 0;
-        
-        // Try to parse existing numbers to find max
+
+        // Get room type prefix
+        const prefixMap = {
+          'Single': 'S',
+          'Double': 'D',
+          'Twin': 'T',
+          'Deluxe': 'DX',
+          'Suite': 'SU',
+          'Family': 'F',
+          'Standard': 'ST',
+          'Executive': 'E',
+          'Presidential': 'P'
+        };
+        const prefix = prefixMap[room.roomType] || room.roomType.charAt(0).toUpperCase();
+
+        // Find the last room number to continue sequence
+        let lastNum = 100; // Start from 101
         if (currentCount > 0) {
-            const maxNum = currentInstances.reduce((max, inst) => {
-                const num = parseInt(inst.roomNumber.replace(/\D/g, '')) || 0;
-                return num > max ? num : max;
-            }, 0);
-            lastNum = maxNum;
+          // Extract number from last room (e.g., "D-105" -> 105)
+          const lastRoom = currentInstances[currentInstances.length - 1];
+          const match = lastRoom.roomNumber.match(/\d+$/);
+          if (match) {
+            lastNum = parseInt(match[0]);
+          }
         }
-        
+
+        // Create new instances
         for (let i = 1; i <= toAdd; i++) {
-             newInstances.push({
-                 roomListing: room._id,
-                 roomNumber: `${lastNum + i}`, // Simple sequential numbers
-                 status: 'FREE'
-             });
+          newInstances.push({
+            roomListing: room._id,
+            roomNumber: `${prefix}-${lastNum + i}`,
+            status: 'FREE'
+          });
         }
         await RoomInstance.insertMany(newInstances);
-        
+        console.log(`✅ Added ${toAdd} room instances: ${prefix}-${lastNum + 1} to ${prefix}-${lastNum + toAdd}`);
+
       } else if (newTotal < currentCount) {
         // Remove excess (prefer FREE ones from the end)
         const toRemove = currentCount - newTotal;
         const freeInstances = currentInstances.filter(i => i.status === 'FREE').reverse();
-        
+
         let removedCount = 0;
         for (const inst of freeInstances) {
-            if (removedCount >= toRemove) break;
-            await RoomInstance.findByIdAndDelete(inst._id);
-            removedCount++;
+          if (removedCount >= toRemove) break;
+          await RoomInstance.findByIdAndDelete(inst._id);
+          removedCount++;
         }
+        console.log(`✅ Removed ${removedCount} room instances`);
         // Note: We do not delete occupied rooms to prevent data inconsistency
       }
     }
@@ -258,15 +303,72 @@ router.delete("/:id/images", async (req, res) => {
 });
 
 /* ======================================================
-   SOFT DELETE ROOM (ADMIN)
+   DELETE ROOM (ADMIN) - Hard delete with instances
 ====================================================== */
 router.delete("/:id", async (req, res) => {
   try {
-    await Room.findByIdAndUpdate(req.params.id, { status: "inactive" });
-    res.json({ success: true, message: "Room deactivated" });
+    const roomId = req.params.id;
+
+    // First, check if room exists
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    // Delete all room instances associated with this room listing
+    const RoomInstance = require("../models/RoomInstance");
+    const deletedInstances = await RoomInstance.deleteMany({ roomListing: roomId });
+    console.log(`Deleted ${deletedInstances.deletedCount} room instances`);
+
+    // Delete the room listing itself
+    await Room.findByIdAndDelete(roomId);
+
+    res.json({
+      success: true,
+      message: "Room and all instances deleted successfully",
+      deletedInstances: deletedInstances.deletedCount
+    });
   } catch (err) {
     console.error("ADMIN DELETE ROOM ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
+/* ======================================================
+   REGENERATE ALL ROOM INSTANCES (ADMIN UTILITY)
+====================================================== */
+const RoomInstance = require("../models/RoomInstance");
+
+router.post("/regenerate-instances", async (req, res) => {
+  try {
+    // Get all active rooms
+    const rooms = await Room.find({ status: "active" });
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const room of rooms) {
+      // Check if instances already exist
+      const existingCount = await RoomInstance.countDocuments({ roomListing: room._id });
+
+      if (existingCount === 0 && room.totalRooms > 0) {
+        // Create instances
+        await createRoomInstancesForListing(room._id, room.totalRooms);
+        created += room.totalRooms;
+      } else {
+        skipped += existingCount;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Created ${created} new room instances. ${skipped} already existed.`,
+      created,
+      skipped
+    });
+  } catch (err) {
+    console.error("REGENERATE INSTANCES ERROR:", err);
+    res.status(500).json({ message: err.message });
   }
 });
 

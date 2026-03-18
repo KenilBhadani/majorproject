@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import "../Admin/Manage_Room.css";
+import { getTabToken } from "../utils/tabSession";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -9,7 +10,7 @@ function ManageBookings() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
-  const token = localStorage.getItem("adminToken");
+  const token = getTabToken();
 
   const mainRef = useRef(null);
 

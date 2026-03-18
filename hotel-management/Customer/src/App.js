@@ -1,8 +1,11 @@
 // ===== REACT & ROUTER =====
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
+
+// ===== TAB SESSION =====
+import { getTabToken, getTabUser, initializeTabSession, setTabSession, SESSION_TYPES } from "./utils/tabSession";
 
 // ===== AUTH =====
 const Register = lazy(() => import("./comp/Registration"));
@@ -42,6 +45,7 @@ const PaymentReports = lazy(() => import("./Admin/Payment_Report"));
 const DashboardStats = lazy(() => import("./Admin/Dash_stats"));
 const AdminStaff = lazy(() => import("./Admin/AdminStaff"));
 const AdminRoomStatus = lazy(() => import("./Admin/AdminRoomStatus"));
+const AdminTasks = lazy(() => import("./Admin/AdminTasks"));
 
 // ===== STAFF =====
 const StaffLayout = lazy(() => import("./Staff/StaffLayout"));
@@ -59,9 +63,38 @@ const NewBooking = lazy(() => import("./Staff/NewBooking"));
 const SystemStatus = lazy(() => import("./Staff/SystemStatus"));
 
 // ===== STRIPE =====
-const stripePromise = loadStripe(
-  "pk_test_51SkMIsFLOpfc1j4ILaTZdWkcAX35xQ8TKC9EG6EA7bOpjgqFfth7ifBBfyE93qC9gWTydziuqABvUgrVQVHPIPk700VHDRWx5M"
-);
+let stripePromise = null;
+try {
+  stripePromise = loadStripe(
+    "pk_test_51SkMIsFLOpfc1j4ILaTZdWkcAX35xQ8TKC9EG6EA7bOpjgqFfth7ifBBfyE93qC9gWTydziuqABvUgrVQVHPIPk700VHDRWx5M"
+  );
+} catch (error) {
+  console.warn("Stripe.js failed to load (offline mode):", error);
+}
+
+// Wrapper component for Stripe Elements with offline fallback
+const StripeWrapper = ({ children }) => {
+  const [stripeError, setStripeError] = useState(false);
+
+  useEffect(() => {
+    if (stripePromise) {
+      stripePromise.catch(() => {
+        setStripeError(true);
+      });
+    }
+  }, []);
+
+  if (!stripePromise || stripeError) {
+    return (
+      <div style={{ padding: "20px", textAlign: "center", color: "#666" }}>
+        <p>⚠️ Payment system unavailable (offline mode)</p>
+        <p style={{ fontSize: "14px" }}>Please connect to the internet to use payment features.</p>
+      </div>
+    );
+  }
+
+  return <Elements stripe={stripePromise}>{children}</Elements>;
+};
 
 const AppLoader = () => (
   <div
@@ -85,23 +118,41 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Handle Google OAuth login
+  // Handle Google OAuth login — handled in Login.js, this is a fallback
   useEffect(() => {
     const query = new URLSearchParams(location.search);
     const token = query.get("token");
 
-    if (token) {
-      localStorage.setItem("token", token);
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ name: "Google User", role: "user" })
-      );
-
-      navigate("/", { replace: true });
+    // Only handle if we're NOT on the /login page (Login.js handles it there)
+    if (token && location.pathname !== "/login") {
+      // Fetch user info and set proper tab session
+      (async () => {
+        try {
+          const res = await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:5000"}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const user = await res.json();
+            if (user.role === "admin") {
+              setTabSession(SESSION_TYPES.ADMIN, token, user);
+              navigate("/admin", { replace: true });
+            } else {
+              setTabSession(SESSION_TYPES.GUEST, token, user);
+              navigate("/", { replace: true });
+            }
+          } else {
+            navigate("/login", { replace: true });
+          }
+        } catch {
+          navigate("/login", { replace: true });
+        }
+      })();
     }
   }, [location, navigate]);
 
   // Restore server-side session (if present) on initial load
+  // DISABLED: This conflicts with tab session system and sets invalid "session" tokens
+  /*
   useEffect(() => {
     (async () => {
       try {
@@ -131,10 +182,11 @@ function App() {
             localStorage.setItem('staffUser', JSON.stringify(staff));
             if (!localStorage.getItem('staffToken')) localStorage.setItem('staffToken', 'session');
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     })();
   }, []);
+  */
 
   // Prefetch likely-next routes during idle time for smoother navigation.
   useEffect(() => {
@@ -190,121 +242,135 @@ function App() {
     };
   }, []);
 
-// ===== PROTECTED ROUTES =====
-const AdminRoute = ({ children }) => {
-  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user"));
+  // ===== PROTECTED ROUTES =====
+  const AdminRoute = ({ children }) => {
+    // Initialize tab session for admin if available in localStorage
+    const sessionType = initializeTabSession(SESSION_TYPES.ADMIN);
 
-  if ((!token && !user) || user?.role !== "admin") {
-    return <Navigate to="/login" replace />;
-  }
-  return children;
-};
+    const token = getTabToken();
+    const user = getTabUser();
 
-const StaffRoute = ({ children }) => {
-  const token = localStorage.getItem("staffToken");
-  const user = JSON.parse(localStorage.getItem("staffUser") || 'null');
+    // Validate token is not just "session" string and user exists with admin role
+    const isValidToken = token && token !== "session" && token.length > 20;
+    const isValidUser = user && user.role === "admin";
 
-  // Accept any authenticated staff role (Housekeeping / Receptionist / Manager)
-  if ((!token && !user) || !user?.role) {
-    return <Navigate to="/login/staff" replace />;
-  }
-  return children;
-};
+    if (!isValidToken || !isValidUser || sessionType !== SESSION_TYPES.ADMIN) {
+      return <Navigate to="/login" replace />;
+    }
+    return children;
+  };
+
+  const StaffRoute = ({ children }) => {
+    // Initialize tab session for staff if available in localStorage
+    const sessionType = initializeTabSession(SESSION_TYPES.STAFF);
+
+    const token = getTabToken();
+    const user = getTabUser();
+
+    // Validate token is not just "session" string and user exists with staff role
+    const isValidToken = token && token !== "session" && token.length > 20;
+    const isValidUser = user && user.role;
+
+    if (!isValidToken || !isValidUser || sessionType !== SESSION_TYPES.STAFF) {
+      return <Navigate to="/login/staff" replace />;
+    }
+    return children;
+  };
 
   return (
     <Suspense fallback={<AppLoader />}>
       <Routes>
-      {/* ===== PUBLIC ===== */}
-      <Route
-        path="/"
-        element={
-          <>
-            <Herosection />
-            <AboutUs />
-            <Rooms />
-            <Middle />
-            <Small />
-            <Events />
-            <Elements stripe={stripePromise}>
-              <LoyaltyHero />
-            </Elements>
-            <Footer />
-          </>
-        }
-      />
+        {/* ===== PUBLIC ===== */}
+        <Route
+          path="/"
+          element={
+            <>
+              <Herosection />
+              <AboutUs />
+              <Rooms />
+              <Middle />
+              <Small />
+              <Events />
+              <StripeWrapper>
+                <LoyaltyHero />
+              </StripeWrapper>
+              <Footer />
+            </>
+          }
+        />
 
-      <Route path="/contact" element={<Contact />} />
-      <Route path="/aboutpage" element={<AboutPage />} />
-      <Route path="/explore" element={<EXPO />} />
-      <Route path="/services" element={<Services />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/aboutpage" element={<AboutPage />} />
+        <Route path="/explore" element={<EXPO />} />
+        <Route path="/services" element={<Services />} />
 
-      {/* ===== BOOKING ===== */}
-      <Route path="/booking" element={<RoomBooking />} />
-      <Route path="/bookings" element={<Mybooking />} />
-      <Route
-        path="/booking/form"
-        element={
-          <Elements stripe={stripePromise}>
-            <BookingForm />
-          </Elements>
-        }
-      />
+        {/* ===== BOOKING ===== */}
+        <Route path="/booking" element={<RoomBooking />} />
+        <Route path="/bookings" element={<Mybooking />} />
+        <Route
+          path="/booking/form"
+          element={
+            <StripeWrapper>
+              <BookingForm />
+            </StripeWrapper>
+          }
+        />
 
-      {/* ===== AUTH ===== */}
-      <Route path="/register" element={<Register />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/login/staff" element={<SLogin />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/oauth-success" element={<OAuthSuccess />} />
+        {/* ===== AUTH ===== */}
+        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/login/staff" element={<SLogin />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/oauth-success" element={<OAuthSuccess />} />
 
-      {/* ===== ADMIN ===== */}
-      <Route
-        path="/admin"
-        element={
-          <AdminRoute>
-            <Dashboard />
-          </AdminRoute>
-        }
-      >
-        <Route index element={<DashboardHome />} />
-        <Route path="manage-booking" element={<ManageBookings />} />
-        <Route path="manage-room" element={<ManageRoom />} />
-        <Route path="manage-user" element={<ManageUser />} />
-        <Route path="manage-payment" element={<PaymentReports />} />
-        <Route path="dashboard-stats" element={<DashboardStats />} />
-        <Route path="manage-staff" element={<AdminStaff />} />
-        <Route path="room-status" element={<AdminRoomStatus />} />
-      </Route>
+        {/* ===== ADMIN ===== */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Dashboard />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<DashboardHome />} />
+          <Route path="manage-booking" element={<ManageBookings />} />
+          <Route path="manage-room" element={<ManageRoom />} />
+          <Route path="manage-user" element={<ManageUser />} />
+          <Route path="manage-payment" element={<PaymentReports />} />
+          <Route path="dashboard-stats" element={<DashboardStats />} />
+          <Route path="manage-staff" element={<AdminStaff />} />
+          <Route path="room-status" element={<AdminRoomStatus />} />
+          <Route path="tasks" element={<AdminTasks />} />
+        </Route>
 
-      {/* ===== STAFF ===== */}
-      <Route
-        path="/staff"
-        element={
-          <StaffRoute>
-            <StaffLayout />
-          </StaffRoute>
-        }
-      >
-        <Route index element={<StaffDashboard />} />
-        <Route path="dashboard" element={<StaffDashboard />} />
-        <Route path="panel" element={<StaffDashboard />} />
-        <Route path="receptionist" element={<ReceptionistDashboard />} />
-        <Route path="system-status" element={<SystemStatus />} />
-        <Route path="bookings" element={<BookingManagement />} />
-        <Route path="bookings/new" element={<NewBooking />} />
-        <Route path="booking-management" element={<BookingManagement />} />
-        <Route path="checkinout" element={<CheckInOut />} />
-        <Route path="guests" element={<Guests />} />
-        <Route path="rooms" element={<RoomStatus />} />
-        <Route path="housekeeping" element={<HousekeepingPanel />} />
-        <Route path="maintenance" element={<MaintenancePanel />} />
-        <Route path="tasks" element={<Tasks />} />
-        <Route path="reports" element={<Reports />} />
-      </Route>
+        {/* ===== STAFF ===== */}
+        <Route
+          path="/staff"
+          element={
+            <StaffRoute>
+              <StaffLayout />
+            </StaffRoute>
+          }
+        >
+          <Route index element={<StaffDashboard />} />
+          <Route path="dashboard" element={<StaffDashboard />} />
+          <Route path="panel" element={<StaffDashboard />} />
+          <Route path="receptionist" element={<ReceptionistDashboard />} />
+          <Route path="system-status" element={<SystemStatus />} />
+          <Route path="bookings" element={<BookingManagement />} />
+          <Route path="bookings/new" element={<NewBooking />} />
+          <Route path="booking-management" element={<BookingManagement />} />
+          <Route path="checkinout" element={<CheckInOut />} />
+          <Route path="guests" element={<Guests />} />
+          <Route path="rooms" element={<RoomStatus />} />
+          <Route path="housekeeping" element={<HousekeepingPanel />} />
+          <Route path="maintenance" element={<MaintenancePanel />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="reports" element={<Reports />} />
+        </Route>
 
-      {/* ===== FALLBACK ===== */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+        {/* ===== FALLBACK ===== */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

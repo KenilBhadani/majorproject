@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  ClipboardCheck, 
-  ChevronLeft, 
-  AlertCircle, 
-  CheckCircle2, 
-  Brush, 
-  Wrench, 
+import {
+  ClipboardCheck,
+  ChevronLeft,
+  AlertCircle,
+  CheckCircle2,
+  Brush,
+  Wrench,
   Clock,
-  Plus,
-  Trash2
+  Plus
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -36,9 +35,9 @@ const Tasks = () => {
       try {
         const [staffRes, roomsRes] = await Promise.all([
           fetch(`${API}/api/staff/tasks/staff`, { headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` } }),
-          fetch(`${API}/api/staff/rooms`, { headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` } })
+          fetch(`${API}/api/staff/rooms/instances`, { headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` } })
         ]);
-        
+
         if (staffRes.ok) {
           const staffData = await staffRes.json();
           const list = Array.isArray(staffData) ? staffData : (staffData.staff || []);
@@ -47,7 +46,15 @@ const Tasks = () => {
 
         if (roomsRes.ok) {
           const roomsData = await roomsRes.json();
-          setRoomList(Array.isArray(roomsData) ? roomsData : []);
+          // Get room instances with room numbers
+          const instances = Array.isArray(roomsData) ? roomsData : [];
+          // Sort by room number
+          instances.sort((a, b) => {
+            const numA = a.roomNumber || '';
+            const numB = b.roomNumber || '';
+            return numA.localeCompare(numB, undefined, { numeric: true });
+          });
+          setRoomList(instances);
         }
 
         // If current user is housekeeping, auto-select them and disable assignment to others
@@ -83,38 +90,23 @@ const Tasks = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
       });
       if (!res.ok) throw new Error('Failed to update task');
-      fetchTasks(); 
+      fetchTasks();
     } catch (err) {
       alert(err.message || 'Failed to update task');
     }
   };
 
-  const deleteTask = async (taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) return;
-    
-    try {
-      const res = await fetch(`${API}/api/staff/tasks/${taskId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
-      });
-      if (!res.ok) throw new Error('Failed to delete task');
-      fetchTasks(); // Refresh the list
-    } catch (err) {
-      alert(err.message || 'Failed to delete task');
-    }
-  };
-
   const filteredTasks = tasks.filter(t => filter === 'All' || t.priority === filter);
 
-  // Authorization guard: allow only Housekeeping & Receptionist
+  // Authorization guard: allow only Housekeeping, Maintenance & Receptionist
   const user = JSON.parse(localStorage.getItem('staffUser') || 'null') || { role: '' };
-  if (!['Housekeeping','Receptionist'].includes(user.role)) {
+  if (!['Housekeeping', 'Maintenance', 'Receptionist'].includes(user.role)) {
     return <div className="p-10 text-center">You are not authorized to view this page.</div>;
   }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -127,7 +119,7 @@ const Tasks = () => {
           </div>
         </div>
 
-        {user.role !== 'Housekeeping' && (
+        {user.role === 'Receptionist' && (
           <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
             <Plus size={18} /> Create Task
           </button>
@@ -142,13 +134,14 @@ const Tasks = () => {
                 <button onClick={() => setShowCreate(false)} className="text-sm text-slate-500">Cancel</button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="text-xs font-bold">Title</label>
-                  <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full mt-1 p-2 border rounded-md" />
+                  <label className="text-xs font-bold">Title *</label>
+                  <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full mt-1 p-2 border rounded-md" placeholder="e.g., Clean Room 101" />
                 </div>
+
                 <div>
-                  <label className="text-xs font-bold">Category</label>
+                  <label className="text-xs font-bold">Category *</label>
                   <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full mt-1 p-2 border rounded-md">
                     <option>Housekeeping</option>
                     <option>Maintenance</option>
@@ -156,13 +149,13 @@ const Tasks = () => {
                   </select>
                 </div>
 
-                <div className="md:col-span-2">
+                <div>
                   <label className="text-xs font-bold">Description</label>
-                  <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full mt-1 p-2 border rounded-md" rows={3} />
+                  <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full mt-1 p-2 border rounded-md" rows={3} placeholder="Add any special notes or details..." />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold">Priority</label>
+                  <label className="text-xs font-bold">Priority *</label>
                   <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full mt-1 p-2 border rounded-md">
                     <option>High</option>
                     <option>Medium</option>
@@ -171,63 +164,20 @@ const Tasks = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold">Assigned To</label>
-                  <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full mt-1 p-2 border rounded-md" disabled={user.role === 'Housekeeping'}>
-                    {user.role === 'Housekeeping' ? (
-                      <>
-                        <option value={user._id || user.id}>{user.name} — {user.role}</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="">(Unassigned)</option>
-                        {staffList.map(s => (
-                          <option key={s._id} value={s._id}>{s.name} — {s.role}</option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold">Room</label>
-                  <select value={form.roomId} onChange={(e) => setForm({ ...form, roomId: e.target.value })} className="w-full mt-1 p-2 border rounded-md">
+                  <label className="text-xs font-bold">Room Number</label>
+                  <select value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="w-full mt-1 p-2 border rounded-md">
                     <option value="">Select Room (Optional)</option>
                     {roomList.map(room => (
-                      <option key={room._id} value={room._id}>{room.title} ({room.roomType})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold">Custom Location</label>
-                  <select value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="w-full mt-1 p-2 border rounded-md">
-                    <option value="">Select Room ID (Optional)</option>
-                    {Object.entries(
-                      roomList.reduce((acc, room) => {
-                        if (!acc[room.roomType]) acc[room.roomType] = [];
-                        acc[room.roomType].push(room);
-                        return acc;
-                      }, {})
-                    ).map(([type, rooms]) => (
-                      <optgroup key={type} label={`${type} Rooms`}>
-                        {rooms.map(room => (
-                          <option key={room._id} value={room._id.slice(-4)}>
-                            {room.title} - ID: {room._id.slice(-4)}
-                          </option>
-                        ))}
-                      </optgroup>
+                      <option key={room._id} value={room.roomNumber}>
+                        {room.roomNumber} - {room.roomListing?.title || room.roomListing?.roomType || 'Room'}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
                   <label className="text-xs font-bold">Due Date</label>
-                  <input value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} type="date" className="w-full mt-1 p-2 border rounded-md" />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="text-xs font-bold">Tags (comma separated)</label>
-                  <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} className="w-full mt-1 p-2 border rounded-md" />
+                  <input value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} type="datetime-local" className="w-full mt-1 p-2 border rounded-md" />
                 </div>
               </div>
 
@@ -240,16 +190,27 @@ const Tasks = () => {
                   if (!form.title.trim()) { setCreateError('Title is required'); return; }
                   setCreating(true);
                   try {
+                    // Reception creates unassigned tasks - Admin will assign staff later
+                    const taskData = {
+                      title: form.title,
+                      description: form.description,
+                      priority: form.priority,
+                      category: form.category,
+                      location: form.location,
+                      dueDate: form.dueDate
+                    };
+
                     const res = await fetch(`${API}/api/staff/tasks`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('staffToken')}` },
-                      body: JSON.stringify({ ...form, tags: form.tags ? form.tags.split(',').map(t=>t.trim()).filter(Boolean) : [] })
+                      body: JSON.stringify(taskData)
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.message || 'Failed to create task');
                     setShowCreate(false);
                     setForm({ title: '', description: '', priority: 'Medium', category: 'Housekeeping', assignedTo: '', roomId: '', location: '', dueDate: '', tags: '' });
                     fetchTasks();
+                    alert('Task created successfully! Admin will assign staff.');
                   } catch (err) {
                     setCreateError(err.message || 'Failed to create');
                   } finally { setCreating(false); }
@@ -266,11 +227,10 @@ const Tasks = () => {
           <button
             key={type}
             onClick={() => setFilter(type)}
-            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-              filter === type 
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-100' 
+            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${filter === type
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
               : 'text-slate-400 hover:text-slate-600'
-            }`}
+              }`}
           >
             {type}
           </button>
@@ -281,15 +241,14 @@ const Tasks = () => {
       <div className="grid gap-4">
         {filteredTasks.map(task => (
           <div key={task._id} className="group bg-white rounded-2xl border border-slate-100 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-all border-l-[6px] border-l-transparent"
-               style={{ borderLeftColor: task.priority === 'High' ? '#ef4444' : task.priority === 'Medium' ? '#f59e0b' : '#3b82f6' }}>
-            
+            style={{ borderLeftColor: task.priority === 'High' ? '#ef4444' : task.priority === 'Medium' ? '#f59e0b' : '#3b82f6' }}>
+
             <div className="flex items-start gap-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                task.category === 'Maintenance' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
-              }`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${task.category === 'Maintenance' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
+                }`}>
                 {task.category === 'Maintenance' ? <Wrench size={20} /> : <Brush size={20} />}
               </div>
-              
+
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-slate-800">{task.title}</h3>
@@ -300,12 +259,12 @@ const Tasks = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-4 mt-1">
-                   <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                     <Clock size={12} className="text-slate-300" /> {task.roomId ? `${task.roomId.title || 'Room'} ${task.roomId.number || task.roomId._id?.slice(-4) || ''}`.trim() : (task.location || 'No location')}
-                   </p>
-                   <p className="text-xs text-slate-400 flex items-center gap-1 italic">
-                     Assigned: {task.assignedTo ? (typeof task.assignedTo === 'string' ? task.assignedTo : (task.assignedTo.name || String(task.assignedTo._id || '—'))) : '—'}
-                   </p>
+                  <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                    <Clock size={12} className="text-slate-300" /> {task.location ? `Room ${task.location}` : 'No location'}
+                  </p>
+                  <p className="text-xs text-slate-400 flex items-center gap-1 italic">
+                    Assigned: {task.assignedTo ? (typeof task.assignedTo === 'string' ? task.assignedTo : (task.assignedTo.name || String(task.assignedTo._id || '—'))) : '—'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -321,35 +280,25 @@ const Tasks = () => {
                 const assignedId = task.assignedTo ? (typeof task.assignedTo === 'object' ? task.assignedTo._id : task.assignedTo) : null;
                 return assignedId === (user._id || user.id) || user.role === 'Manager';
               })() && (
-                <button 
-                  onClick={() => markComplete(task._id)}
-                  className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all w-full md:w-auto justify-center"
-                >
-                  <CheckCircle2 size={18} />
-                  Mark Complete
-                </button>
-              )}
-
-              {user.role === 'Receptionist' && (
-                <button 
-                  onClick={() => deleteTask(task._id)}
-                  className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-700 rounded-xl text-sm font-bold hover:bg-red-600 hover:text-white transition-all w-full md:w-auto justify-center"
-                >
-                  <Trash2 size={18} />
-                  Delete Task
-                </button>
-              )}
+                  <button
+                    onClick={() => markComplete(task._id)}
+                    className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold hover:bg-emerald-600 hover:text-white transition-all w-full md:w-auto justify-center"
+                  >
+                    <CheckCircle2 size={18} />
+                    Mark Complete
+                  </button>
+                )}
             </div>
           </div>
         ))}
 
         {filteredTasks.length === 0 && (
           <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
-             <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ClipboardCheck size={40} />
-             </div>
-             <h3 className="text-slate-800 font-bold text-xl">Operational Clear!</h3>
-             <p className="text-slate-500 mt-2 max-w-xs mx-auto">No pending {filter.toLowerCase()} priority tasks found for your department.</p>
+            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ClipboardCheck size={40} />
+            </div>
+            <h3 className="text-slate-800 font-bold text-xl">Operational Clear!</h3>
+            <p className="text-slate-500 mt-2 max-w-xs mx-auto">No pending {filter.toLowerCase()} priority tasks found for your department.</p>
           </div>
         )}
       </div>

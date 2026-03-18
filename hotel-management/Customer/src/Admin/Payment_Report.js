@@ -14,12 +14,13 @@ import {
   YAxis,
   CartesianGrid
 } from "recharts";
+import { getTabToken } from "../utils/tabSession";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function PaymentReports() {
   const navigate = useNavigate();
-  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+  const token = getTabToken();
 
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [summary, setSummary] = useState(null);
@@ -257,15 +258,15 @@ function PaymentReports() {
                     <td>₹{t.totalAmount}</td>
                     <td>
                       {/* Check if marked paid by reception or completed via gateway */}
-                      <span 
+                      <span
                         className={t.paymentStatus === "Paid" ? "available" : "not-available"}
                         style={{
-                           backgroundColor: t.paymentStatus === "Paid" ? "#dcfce7" : "#fee2e2",
-                           color: t.paymentStatus === "Paid" ? "#166534" : "#991b1b",
-                           padding: "4px 12px",
-                           borderRadius: "99px",
-                           fontWeight: "bold",
-                           fontSize: "12px"
+                          backgroundColor: t.paymentStatus === "Paid" ? "#dcfce7" : "#fee2e2",
+                          color: t.paymentStatus === "Paid" ? "#166534" : "#991b1b",
+                          padding: "4px 12px",
+                          borderRadius: "99px",
+                          fontWeight: "bold",
+                          fontSize: "12px"
                         }}
                       >
                         {t.paymentStatus}

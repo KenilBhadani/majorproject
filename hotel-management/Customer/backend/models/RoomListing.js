@@ -7,7 +7,7 @@ const RoomListingSchema = new mongoose.Schema(
 
     roomType: {
       type: String,
-      enum: ["Single", "Double", "Deluxe", "Suite", "Family"],
+      enum: ["Single", "Double", "Twin", "Deluxe", "Suite", "Family", "Standard", "Executive", "Presidential"],
       required: true,
     },
 
@@ -45,6 +45,10 @@ const RoomListingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// ✅ Performance Indexes
+RoomListingSchema.index({ status: 1, roomType: 1 });
+RoomListingSchema.index({ status: 1 });
 
 module.exports =
   mongoose.models.RoomListing ||

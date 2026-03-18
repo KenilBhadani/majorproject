@@ -25,6 +25,8 @@ const userSchema = new mongoose.Schema(
       required: function () {
         return this.provider === "local";
       },
+      unique: true,
+      sparse: true, // Allows null values for Google users
     },
 
     password: {

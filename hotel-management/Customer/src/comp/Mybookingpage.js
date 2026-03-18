@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import HeaderOfCustomer from "./HeaderOfCustomer";
 import Footer from "./footer";
 import "../Componentcss/Mybooking.css";
+import { getTabToken, hasTabSession } from "../utils/tabSession";
+import { useNavigate } from "react-router-dom";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -23,6 +25,7 @@ function getRoomImageSrc(room) {
 }
 
 export default function MyBookingPage({ initialGuestEmail = "" }) {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,9 +37,17 @@ export default function MyBookingPage({ initialGuestEmail = "" }) {
   const [reviewSubmitted, setReviewSubmitted] = useState({});
   const [reviewOpen, setReviewOpen] = useState({});
 
-  // Helper to get auth info from localStorage
+  // Check if user is logged in using tab session
+  useEffect(() => {
+    if (!hasTabSession()) {
+      // No active session in this tab, redirect to login
+      navigate("/login");
+    }
+  }, [navigate]);
+
+  // Helper to get auth info from tab session
   const getAuthInfo = () => {
-    const token = localStorage.getItem("token") || localStorage.getItem("adminToken");
+    const token = getTabToken();
     return { token };
   };
 

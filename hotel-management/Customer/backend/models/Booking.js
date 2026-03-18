@@ -88,4 +88,11 @@ const bookingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// ✅ Performance Indexes - Critical for query speed
+bookingSchema.index({ email: 1 });
+bookingSchema.index({ bookingStatus: 1, checkIn: 1, checkOut: 1 });
+bookingSchema.index({ roomId: 1, checkIn: 1, checkOut: 1 });
+bookingSchema.index({ userId: 1 });
+bookingSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("Booking", bookingSchema);

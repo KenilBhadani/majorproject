@@ -15,9 +15,16 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "All required fields missing" });
     }
 
-    const exists = await Staff.findOne({ email });
+    // ✅ Check for duplicate email (case-insensitive)
+    const normalizedEmail = email.trim().toLowerCase();
+    const exists = await Staff.findOne({
+      email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') }
+    });
+
     if (exists) {
-      return res.status(409).json({ message: "Staff already exists" });
+      return res.status(409).json({
+        message: `A staff member with email "${email}" already exists.`
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -28,7 +35,7 @@ router.post("/", async (req, res) => {
     const staff = await Staff.create({
       staffId,
       name,
-      email,
+      email: normalizedEmail,
       phone,
       role,
       shift,
@@ -48,7 +55,7 @@ router.post("/", async (req, res) => {
 ================================ */
 router.get("/", async (req, res) => {
   try {
-    const staff = await Staff.find().sort({ createdAt: -1 });
+    const staff = await Staff.find().sort({ createdAt: -1 }).lean();
     res.json(staff);
   } catch (err) {
     console.error(err);
@@ -61,7 +68,24 @@ router.get("/", async (req, res) => {
 ================================ */
 router.put("/:id", async (req, res) => {
   try {
-    const { password, ...updateData } = req.body;
+    const { password, email, ...updateData } = req.body;
+
+    // ✅ Check for duplicate email when updating (case-insensitive)
+    if (email) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const existingStaff = await Staff.findOne({
+        email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') },
+        _id: { $ne: req.params.id } // Exclude current staff
+      });
+
+      if (existingStaff) {
+        return res.status(409).json({
+          message: `A staff member with email "${email}" already exists.`
+        });
+      }
+
+      updateData.email = email;
+    }
 
     // Only hash/update password if provided and non-empty
     if (password && password.trim() !== "") {

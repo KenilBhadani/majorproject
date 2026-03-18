@@ -69,7 +69,9 @@ router.get("/admin", auth, isAdmin, async (req, res) => {
   try {
     const bookings = await Booking.find()
       .populate("roomId")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
     res.json(bookings || []);
   } catch (err) {
     console.error("ADMIN BOOKINGS ERROR:", err);
@@ -138,7 +140,17 @@ router.post("/save", auth, async (req, res) => {
       checkOut: { $gt: checkInDate },
     });
 
-    if (overlappingBookings >= room.totalRooms) {
+    // Count physically unavailable rooms (DIRTY, CLEANING, MAINTENANCE, STAY, REVIEW)
+    const RoomInstance = require("../models/RoomInstance");
+    const unavailableInstances = await RoomInstance.countDocuments({
+      roomListing: roomId,
+      status: { $in: ["DIRTY", "CLEANING", "MAINTENANCE", "STAY", "REVIEW"] }
+    });
+
+    const physicallyAvailable = room.totalRooms - unavailableInstances;
+    const actualAvailable = Math.max(0, physicallyAvailable - overlappingBookings);
+
+    if (actualAvailable <= 0) {
       return res.status(400).json({ error: "No rooms available for the selected dates" });
     }
 
@@ -189,8 +201,8 @@ router.put("/:id/cancel", auth, async (req, res) => {
 
     // 2. If a physical room was assigned, free it up
     // Note: We need to import RoomInstance at the top
-    const RoomInstance = require("../models/RoomInstance"); 
-    
+    const RoomInstance = require("../models/RoomInstance");
+
     if (booking.assignedRoomInstance) {
       const roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
       if (roomInstance) {
@@ -198,9 +210,9 @@ router.put("/:id/cancel", auth, async (req, res) => {
         // If it's already DIRTY or MAINTENANCE, maybe keep it?
         // But usually cancellation means nobody stayed, so it should go back to FREE.
         if (roomInstance.status === 'STAY') {
-             roomInstance.status = 'FREE';
-             roomInstance.assignedTo = null; // Clear staff assignment if any
-             await roomInstance.save();
+          roomInstance.status = 'FREE';
+          roomInstance.assignedTo = null; // Clear staff assignment if any
+          await roomInstance.save();
         }
       }
     }

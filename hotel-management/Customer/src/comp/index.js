@@ -1,20 +1,50 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../Componentcss/index.css";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import LoginButton from "./LoginButton";
+import { hasTabSession, getTabToken } from "../utils/tabSession";
+
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function Horosection() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [roomTypes, setRoomTypes] = useState([]);
 
   const [bookingData, setBookingData] = useState({
     checkIn: "",
     checkOut: "",
-    roomType: "deluxe",
+    roomType: "",
     guests: 1,
   });
+
+  // Fetch room types from backend
+  useEffect(() => {
+    const fetchRoomTypes = async () => {
+      try {
+        const res = await fetch(`${API}/api/rooms/types`);
+        if (res.ok) {
+          const types = await res.json();
+          if (types && types.length > 0) {
+            setRoomTypes(types);
+          } else {
+            // Fallback to default types if no types in database
+            setRoomTypes(["Single", "Double", "Twin", "Deluxe", "Suite", "Family", "Standard", "Executive", "Presidential"]);
+          }
+        } else {
+          // Fallback if API fails
+          setRoomTypes(["Single", "Double", "Twin", "Deluxe", "Suite", "Family", "Standard", "Executive", "Presidential"]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch room types:", err);
+        // Fallback to default types on error
+        setRoomTypes(["Single", "Double", "Twin", "Deluxe", "Suite", "Family", "Standard", "Executive", "Presidential"]);
+      }
+    };
+    fetchRoomTypes();
+  }, []);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const closeMenu = () => setIsMenuOpen(false);
@@ -30,8 +60,9 @@ function Horosection() {
   const handleSearch = (e) => {
     e.preventDefault();
 
+
     /* 🔐 BLOCK GUEST USERS */
-    if (!localStorage.getItem("token")) {
+    if (!hasTabSession() && !getTabToken()) {
       // Save booking data
       sessionStorage.setItem(
         "pendingSearch",
@@ -144,6 +175,7 @@ function Horosection() {
               <input
                 type="date"
                 name="checkIn"
+                min={new Date().toISOString().split('T')[0]}
                 value={bookingData.checkIn}
                 onChange={handleInputChange}
                 required
@@ -155,6 +187,7 @@ function Horosection() {
               <input
                 type="date"
                 name="checkOut"
+                min={bookingData.checkIn || new Date().toISOString().split('T')[0]}
                 value={bookingData.checkOut}
                 onChange={handleInputChange}
                 required
@@ -168,10 +201,12 @@ function Horosection() {
                 value={bookingData.roomType}
                 onChange={handleInputChange}
               >
-                <option value="deluxe">Deluxe Room</option>
-                <option value="suite">Royal Suite</option>
-                <option value="family">Family Room</option>
-                <option value="standard">Standard Room</option>
+                <option value="">Optional</option>
+                {roomTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
               </select>
             </div>
 

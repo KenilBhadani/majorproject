@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import "../Componentcss/Registration.css";
+import { setTabSession, SESSION_TYPES } from "../utils/tabSession";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -44,14 +45,10 @@ export default function Login() {
 
           const user = parsed.data;
           if (user.role === 'admin') {
-            localStorage.setItem('adminToken', googleToken);
-            localStorage.setItem('adminUser', JSON.stringify(user));
-            localStorage.setItem('adminRole', user.role);
+            setTabSession(SESSION_TYPES.ADMIN, googleToken, user);
             navigate('/admin', { replace: true });
           } else {
-            localStorage.setItem('token', googleToken);
-            localStorage.setItem('user', JSON.stringify(user));
-            localStorage.setItem('role', user.role);
+            setTabSession(SESSION_TYPES.GUEST, googleToken, user);
             navigate('/', { replace: true });
           }
         } catch (e) {
@@ -87,15 +84,10 @@ export default function Login() {
 
       const data = parsed.data;
       if (data.user.role === 'admin') {
-        // keep admin credentials separate to allow user/admin to co-exist in same browser
-        localStorage.setItem('adminToken', data.token);
-        localStorage.setItem('adminUser', JSON.stringify(data.user));
-        localStorage.setItem('adminRole', data.user.role);
+        setTabSession(SESSION_TYPES.ADMIN, data.token, data.user);
         navigate('/admin');
       } else {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('role', data.user.role);
+        setTabSession(SESSION_TYPES.GUEST, data.token, data.user);
         navigate('/');
       }
     } catch (err) {
@@ -161,8 +153,8 @@ export default function Login() {
               {resetToken
                 ? "Enter your new password"
                 : isRecovery
-                ? "Enter your email to receive reset link"
-                : "Please enter your details to sign in."}
+                  ? "Enter your email to receive reset link"
+                  : "Please enter your details to sign in."}
             </p>
           </div>
 

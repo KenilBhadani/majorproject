@@ -469,6 +469,17 @@ app.put("/api/admin/bookings/:id/checkout", auth, isAdmin, async (req, res) => {
     booking.actualCheckOut = new Date();
     await booking.save();
 
+    // Update Room Instance to DIRTY status after checkout
+    if (booking.assignedRoomInstance) {
+      const roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
+      if (roomInstance) {
+        roomInstance.status = 'DIRTY';
+        roomInstance.lastStatusUpdate = new Date();
+        await roomInstance.save();
+        console.log(`[CHECKOUT] Room ${roomInstance.roomNumber} set to DIRTY`);
+      }
+    }
+
     res.json({ success: true, message: "Booking checked out successfully" });
   } catch (err) {
     console.error("CHECK OUT BOOKING ERROR:", err);

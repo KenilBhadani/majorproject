@@ -1,10 +1,5 @@
 const mongoose = require("mongoose");
 
-/**
- * RoomInstance represents a physical room tied to a RoomListing.
- * Each RoomListing (like "Deluxe Suite") can have multiple RoomInstances
- * corresponding to each actual room in the hotel.
- */
 const RoomInstanceSchema = new mongoose.Schema(
   {
     // Reference to the RoomListing
@@ -43,6 +38,11 @@ const RoomInstanceSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// ✅ Performance Indexes
+RoomInstanceSchema.index({ roomListing: 1, status: 1 });
+RoomInstanceSchema.index({ status: 1 });
+RoomInstanceSchema.index({ assignedTo: 1 });
 
 // Export model
 module.exports =

@@ -20,9 +20,12 @@ router.get('/', verifyStaff, async (req, res) => {
 
     // Role-based filtering
     if (req.user.role === 'Housekeeping') {
-      filter.assignedTo = req.user.id;
+      filter.assignedTo = req.user.userId || req.user.id;
     }
-    // Manager sees all, Receptionist sees all (can assign tasks)
+    if (req.user.role === 'Maintenance') {
+      filter.assignedTo = req.user.userId || req.user.id;
+    }
+    // Manager, Admin, Receptionist see all tasks
 
     const tasks = await Task.find(filter)
       .populate('assignedTo', 'name email role')
@@ -44,7 +47,7 @@ router.get('/', verifyStaff, async (req, res) => {
 router.get('/staff', verifyStaff, async (_req, res) => {
   try {
     // return only roles that can be assigned tasks
-    const assignableRoles = ['Housekeeping','Maintenance','Receptionist','Manager'];
+    const assignableRoles = ['Housekeeping', 'Maintenance', 'Receptionist', 'Manager'];
     const staff = await Staff.find({ isActive: true, role: { $in: assignableRoles } }).select('name role email');
     res.json(staff.map(s => ({ _id: s._id, name: s.name, role: s.role, email: s.email })));
   } catch (err) {
@@ -60,18 +63,31 @@ router.post('/', verifyStaff, async (req, res) => {
     // validation
     if (!title) return res.status(400).json({ message: 'Title required' });
 
-    // Permission: Receptionist and Manager can create tasks; Housekeeping can create personal tasks
-    if (!['Receptionist', 'Manager', 'Housekeeping'].includes(req.user.role)) return res.status(403).json({ message: 'Forbidden' });
+    // Permission: Receptionist, Manager, Admin can create tasks; Housekeeping can create personal tasks
+    if (!['Receptionist', 'Manager', 'Housekeeping', 'Admin', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
 
-    const doc = new Task({ title, description, priority, category, location, roomId, tags, createdBy: req.user.id, status: 'Pending' });
+    const doc = new Task({
+      title,
+      description,
+      priority,
+      category,
+      location,
+      roomId,
+      tags,
+      createdBy: req.user.userId || req.user.id,
+      status: 'Pending'
+    });
 
     if (dueDate) doc.dueDate = new Date(dueDate);
 
     // Assignment logic
     if (assignedTo) {
-      // Manager/Receptionist may assign anyone; Housekeeping may assign only to self
-      if (!['Manager', 'Receptionist'].includes(req.user.role)) {
-        if (req.user.role === 'Housekeeping' && String(assignedTo) === String(req.user.id)) {
+      // Manager/Receptionist/Admin may assign anyone; Housekeeping may assign only to self
+      if (!['Manager', 'Receptionist', 'Admin', 'admin'].includes(req.user.role)) {
+        const userId = req.user.userId || req.user.id;
+        if (req.user.role === 'Housekeeping' && String(assignedTo) === String(userId)) {
           doc.assignedTo = assignedTo;
         } else {
           return res.status(403).json({ message: 'Not allowed to assign' });
@@ -81,13 +97,13 @@ router.post('/', verifyStaff, async (req, res) => {
       }
     } else if (req.user.role === 'Housekeeping') {
       // Housekeeping auto-assign to self
-      doc.assignedTo = req.user.id;
+      doc.assignedTo = req.user.userId || req.user.id;
     }
 
     await doc.save();
 
     // history
-    doc.history.push({ action: 'created', by: req.user.id, note: 'Task created' });
+    doc.history.push({ action: 'created', by: req.user.userId || req.user.id, note: 'Task created' });
     await doc.save();
 
     // notify assignee via email if present
@@ -123,8 +139,10 @@ router.patch('/:id', verifyStaff, async (req, res) => {
     const task = await Task.findById(id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
-    // authorization: only Manager or the assigned staff can update status; Manager/Receptionist can edit details/assign
-    if (patch.assignedTo && !['Manager', 'Receptionist'].includes(req.user.role)) return res.status(403).json({ message: 'Not allowed to assign' });
+    // authorization: only Manager, Admin, or Receptionist can assign tasks
+    if (patch.assignedTo && !['Manager', 'Receptionist', 'Admin', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Not allowed to assign' });
+    }
 
     if (patch.title) task.title = patch.title;
     if (patch.description) task.description = patch.description;
@@ -136,7 +154,7 @@ router.patch('/:id', verifyStaff, async (req, res) => {
     if (patch.assignedTo && String(task.assignedTo) !== String(patch.assignedTo)) {
       const old = task.assignedTo;
       task.assignedTo = patch.assignedTo;
-      task.history.push({ action: 'reassigned', by: req.user.id, note: `from:${old} to:${patch.assignedTo}` });
+      task.history.push({ action: 'reassigned', by: req.user.userId || req.user.id, note: `from:${old} to:${patch.assignedTo}` });
 
       // notify new assignee
       try {
@@ -153,7 +171,7 @@ router.patch('/:id', verifyStaff, async (req, res) => {
       }
     }
 
-    task.history.push({ action: 'updated', by: req.user.id, note: JSON.stringify(patch) });
+    task.history.push({ action: 'updated', by: req.user.userId || req.user.id, note: JSON.stringify(patch) });
 
     await task.save();
     res.json({ task });
@@ -171,11 +189,12 @@ router.patch('/:id/complete', verifyStaff, async (req, res) => {
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
     // Only assigned staff or Manager can complete
-    if (String(task.assignedTo) !== String(req.user.id) && req.user.role !== 'Manager') return res.status(403).json({ message: 'Not authorized' });
+    const userId = req.user.userId || req.user.id;
+    if (String(task.assignedTo) !== String(userId) && req.user.role !== 'Manager' && req.user.role !== 'Admin' && req.user.role !== 'admin') return res.status(403).json({ message: 'Not authorized' });
 
     task.status = 'Completed';
     task.completedAt = new Date();
-    task.history.push({ action: 'completed', by: req.user.id, note: 'Marked complete' });
+    task.history.push({ action: 'completed', by: userId, note: 'Marked complete' });
     await task.save();
     res.json({ task });
   } catch (err) {
@@ -193,9 +212,10 @@ router.post('/:id/comment', verifyStaff, async (req, res) => {
     const task = await Task.findById(id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
+    const userId = req.user.userId || req.user.id;
     task.comments = task.comments || [];
-    task.comments.push({ by: req.user.id, comment, createdAt: new Date() });
-    task.history.push({ action: 'comment', by: req.user.id, note: comment });
+    task.comments.push({ by: userId, comment, createdAt: new Date() });
+    task.history.push({ action: 'comment', by: userId, note: comment });
     await task.save();
     res.json({ task });
   } catch (err) {
@@ -204,10 +224,10 @@ router.post('/:id/comment', verifyStaff, async (req, res) => {
   }
 });
 
-// DELETE /api/staff/tasks/:id - manager only
+// DELETE /api/staff/tasks/:id - manager and admin only
 router.delete('/:id', verifyStaff, async (req, res) => {
   try {
-    if (req.user.role !== 'Manager') return res.status(403).json({ message: 'Only Manager may delete' });
+    if (!['Manager', 'Admin', 'admin'].includes(req.user.role)) return res.status(403).json({ message: 'Only Manager or Admin may delete' });
     const { id } = req.params;
     await Task.findByIdAndDelete(id);
     res.json({ success: true });

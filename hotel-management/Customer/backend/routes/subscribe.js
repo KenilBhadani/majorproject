@@ -25,35 +25,44 @@ router.post("/", async (req, res) => {
     }
 
     const existing = await Subscriber.findOne({ email: normalizedEmail });
-    if (existing?.membershipActive) {
+
+    // Allow updating PENDING memberships to PAID
+    if (existing?.membershipActive && existing?.paymentStatus === "PAID") {
       return res.status(409).json({
         success: false,
-        message: "Email already subscribed",
+        message: "Email already subscribed with active membership",
       });
     }
 
     const isPaid = paymentStatus === "PAID";
-    
+
     // Set expiration to 1 year from now if paid
     let expiresAt = null;
     if (isPaid) {
-        const date = new Date();
-        date.setFullYear(date.getFullYear() + 1);
-        expiresAt = date;
+      const date = new Date();
+      date.setFullYear(date.getFullYear() + 1);
+      expiresAt = date;
+    }
+
+    const updateData = {
+      userId: user._id,
+      email: normalizedEmail,
+      paymentMethod: "CARD",
+      membershipFee: Number(membershipFee) || 0,
+      paymentStatus: isPaid ? "PAID" : "PENDING",
+      paymentIntentId: paymentIntentId || "",
+      membershipActive: isPaid,
+      expiresAt: expiresAt
+    };
+
+    // If updating from PENDING to PAID, log it
+    if (existing && existing.paymentStatus === "PENDING" && isPaid) {
+      console.log(`✅ Updated membership from PENDING to PAID for ${normalizedEmail}`);
     }
 
     await Subscriber.findOneAndUpdate(
       { email: normalizedEmail },
-      {
-        userId: user._id,
-        email: normalizedEmail,
-        paymentMethod: "CARD",
-        membershipFee: Number(membershipFee) || 0,
-        paymentStatus: isPaid ? "PAID" : "PENDING",
-        paymentIntentId: paymentIntentId || "",
-        membershipActive: isPaid,
-        expiresAt: expiresAt
-      },
+      updateData,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 

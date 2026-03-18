@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, BedDouble, CalendarCheck, 
+import {
+  LayoutDashboard, BedDouble, CalendarCheck,
   Users, ClipboardList, BarChart3, LogOut, Search, Bell, Menu, X, Sparkles, Wrench
 } from 'lucide-react';
+import { getTabToken, getTabUser, logoutTab } from '../utils/tabSession';
 
 const StaffLayout = () => {
   const navigate = useNavigate();
@@ -34,8 +35,8 @@ const StaffLayout = () => {
     setShowNotifications(false);
   };
 
-  // Get dynamic user data from localStorage (support new key `staffUser` and fallback to old `user`)
-  const user = JSON.parse(localStorage.getItem('staffUser') || localStorage.getItem('user') || 'null') || { name: 'Staff Member', role: 'Staff' };
+  // Get user from tab session
+  const user = getTabUser() || { name: 'Staff Member', role: 'Staff' };
 
   const handleLogout = async () => {
     try {
@@ -43,20 +44,20 @@ const StaffLayout = () => {
     } catch (e) {
       // ignore
     }
-    // Only clear staff related keys to avoid logging out site-wide apps unintentionally
-    localStorage.removeItem('staffToken');
-    localStorage.removeItem('staffUser');
+    // Use tab session logout (only clears current tab)
+    logoutTab();
     navigate('/');
   };
 
   // Define all possible menu items and attach allowed roles
   const allMenuItems = [
-    { path: '/staff/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> , roles: ['Receptionist','Manager']},
+    { path: '/staff/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Receptionist', 'Manager'] },
     { path: '/staff/housekeeping', name: 'Housekeeping', icon: <Sparkles size={20} />, roles: ['Housekeeping'] },
     { path: '/staff/rooms', name: 'Room Status', icon: <BedDouble size={20} />, roles: ['Receptionist'] },
     { path: '/staff/bookings', name: 'Bookings', icon: <CalendarCheck size={20} />, roles: ['Receptionist'] },
     { path: '/staff/checkinout', name: 'Check-in/Out', icon: <Users size={20} />, roles: ['Receptionist'] },
     { path: '/staff/guests', name: 'Guests', icon: <Users size={20} />, roles: ['Receptionist'] },
+    { path: '/staff/tasks', name: 'Tasks', icon: <ClipboardList size={20} />, roles: ['Receptionist', 'Housekeeping', 'Maintenance', 'Manager'] },
     { path: '/staff/maintenance', name: 'Maintenance', icon: <Wrench size={20} />, roles: ['Maintenance', 'Manager', 'Admin'] },
   ];
 
@@ -73,8 +74,11 @@ const StaffLayout = () => {
     let active = true;
     const fetchPanelAndBuildNotifications = async () => {
       try {
+        const token = getTabToken();
+        if (!token) return;
+
         const res = await fetch(`${API}/api/staff/panel`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
+          headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -135,11 +139,11 @@ const StaffLayout = () => {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
-      
+
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden" 
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
@@ -163,7 +167,7 @@ const StaffLayout = () => {
             <X size={24} />
           </button>
         </div>
-        
+
         <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -172,18 +176,17 @@ const StaffLayout = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
-                  isActive 
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 font-semibold' 
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 font-semibold'
                   : 'hover:bg-slate-800 hover:text-white text-slate-400'
-                }`}
+                  }`}
               >
                 <span className={`${isActive ? 'text-white' : 'group-hover:text-blue-400 text-slate-500'}`}>
                   {item.icon}
                 </span>
                 <span className="text-sm">{item.name}</span>
                 {isActive && (
-                   <div className="absolute right-2 w-1.5 h-1.5 bg-white rounded-full" />
+                  <div className="absolute right-2 w-1.5 h-1.5 bg-white rounded-full" />
                 )}
               </Link>
             );
@@ -192,36 +195,36 @@ const StaffLayout = () => {
 
         {/* Staff User Card */}
         <div className="p-4 mx-4 mb-4 bg-slate-800/40 border border-slate-700/50 rounded-2xl shadow-inner">
-           <div className="flex items-center gap-3">
-              <div className="relative">
-                <img 
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`} 
-                  alt="avatar" 
-                  className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600"
-                />
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#0F172A] rounded-full"></div>
-              </div>
-              <div className="overflow-hidden">
-                <p className="text-xs font-bold text-white truncate">{user.name}</p>
-                <p className="text-[10px] text-slate-500 capitalize">{user.role}</p>
-              </div>
-              <button 
-                onClick={handleLogout}
-                className="ml-auto p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
-                title="Logout"
-              >
-                <LogOut size={18} />
-              </button>
-           </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <img
+                src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
+                alt="avatar"
+                className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600"
+              />
+              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#0F172A] rounded-full"></div>
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs font-bold text-white truncate">{user.name}</p>
+              <p className="text-[10px] text-slate-500 capitalize">{user.role}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="ml-auto p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+              title="Logout"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-10">
-          
+
           <div className="flex items-center gap-4">
-            <button 
+            <button
               className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
               onClick={() => setIsMobileMenuOpen(true)}
             >
@@ -235,7 +238,7 @@ const StaffLayout = () => {
 
           <div className="flex items-center gap-3 lg:gap-6">
             <div className="flex items-center gap-2 border-l border-slate-200 pl-4 lg:pl-6 relative">
-              <button 
+              <button
                 onClick={handleNotificationClick}
                 className="relative p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all group"
                 title="Notifications"
@@ -288,7 +291,7 @@ const StaffLayout = () => {
             </div>
           </div>
         </header>
-        
+
         {/* Page Content Container */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">
           <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">

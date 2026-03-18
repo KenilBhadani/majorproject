@@ -160,12 +160,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+  padding: 16px 0;
+}
+
+.top-bar h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
 }
 
 .subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: #64748b;
+  margin-top: 2px;
 }
 
 .month-select {
@@ -185,7 +194,7 @@
   background: white;
   padding: 18px;
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
   transition: transform .2s;
 }
 
@@ -203,17 +212,28 @@
 }
 
 /* ACCENTS */
-.accent-indigo { border-left: 4px solid #6366f1; }
-.accent-green { border-left: 4px solid #22c55e; }
-.accent-yellow { border-left: 4px solid #f59e0b; }
-.accent-purple { border-left: 4px solid #a855f7; }
+.accent-indigo {
+  border-left: 4px solid #6366f1;
+}
+
+.accent-green {
+  border-left: 4px solid #22c55e;
+}
+
+.accent-yellow {
+  border-left: 4px solid #f59e0b;
+}
+
+.accent-purple {
+  border-left: 4px solid #a855f7;
+}
 
 /* ===== CARD ===== */
 .card {
   background: white;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
 }
 
 .card-header {

@@ -44,10 +44,12 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// 6️⃣ Debug Google OAuth (optional)
-console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
-console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
-console.log("GOOGLE_CALLBACK_URL:", process.env.GOOGLE_CALLBACK_URL);
+// 6️⃣ Debug Google OAuth (optional) - Only in development
+if (process.env.NODE_ENV === 'development') {
+  console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID ? '✓ Set' : '✗ Missing');
+  console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET ? '✓ Set' : '✗ Missing');
+  console.log("GOOGLE_CALLBACK_URL:", process.env.GOOGLE_CALLBACK_URL);
+}
 
 // 7️⃣ Passport strategies
 require("./config/passport");

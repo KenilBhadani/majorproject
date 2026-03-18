@@ -17,6 +17,7 @@ export default function Register() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [success, setSuccess] = useState(null);
 
   useEffect(() => {
@@ -36,12 +37,14 @@ export default function Register() {
 
     setForm((prev) => ({ ...prev, [name]: value }));
     setError(null);
+    setFieldErrors({});
     setSuccess(null);
   };
 
   // ================= LOCAL REGISTER =================
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
 
     if (
       !form.name ||
@@ -56,12 +59,20 @@ export default function Register() {
 
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match");
+      setFieldErrors({ confirmPassword: "Passwords do not match" });
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setFieldErrors({ password: "Password must be at least 6 characters" });
       return;
     }
 
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(form.phone)) {
       setError("Invalid phone number");
+      setFieldErrors({ phone: "Invalid phone number (must start with 6-9 and be 10 digits)" });
       return;
     }
 
@@ -80,7 +91,14 @@ export default function Register() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Registration failed");
+
+      if (!res.ok) {
+        // Handle field-specific errors
+        if (data.field) {
+          setFieldErrors({ [data.field]: data.message });
+        }
+        throw new Error(data.message || "Registration failed");
+      }
 
       setSuccess("Account created successfully! Redirecting to login...");
       localStorage.removeItem("pendingMembershipEmail");
@@ -170,8 +188,10 @@ export default function Register() {
                 type="text"
                 value={form.name}
                 onChange={handleChange}
+                className={fieldErrors.name ? "error-input" : ""}
                 required
               />
+              {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
             </div>
 
             <div className="input-field">
@@ -181,8 +201,10 @@ export default function Register() {
                 type="email"
                 value={form.email}
                 onChange={handleChange}
+                className={fieldErrors.email ? "error-input" : ""}
                 required
               />
+              {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
             </div>
 
             <div className="input-field">
@@ -192,8 +214,11 @@ export default function Register() {
                 type="tel"
                 value={form.phone}
                 onChange={handleChange}
+                className={fieldErrors.phone ? "error-input" : ""}
+                placeholder="10-digit mobile number"
                 required
               />
+              {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
             </div>
 
             <div className="form-row">
@@ -204,8 +229,11 @@ export default function Register() {
                   type="password"
                   value={form.password}
                   onChange={handleChange}
+                  className={fieldErrors.password ? "error-input" : ""}
+                  placeholder="Min 6 characters"
                   required
                 />
+                {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
               </div>
 
               <div className="input-field">
@@ -215,8 +243,10 @@ export default function Register() {
                   type="password"
                   value={form.confirmPassword}
                   onChange={handleChange}
+                  className={fieldErrors.confirmPassword ? "error-input" : ""}
                   required
                 />
+                {fieldErrors.confirmPassword && <span className="field-error">{fieldErrors.confirmPassword}</span>}
               </div>
             </div>
 

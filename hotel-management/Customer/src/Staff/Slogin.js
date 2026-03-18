@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Hotel } from "lucide-react";
+import { setTabSession, SESSION_TYPES } from "../utils/tabSession";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -32,11 +33,10 @@ const SLogin = () => {
         return;
       }
 
-      // ✅ STORE STAFF AUTH SEPARATELY
-      localStorage.setItem("staffToken", data.token);
-      localStorage.setItem("staffUser", JSON.stringify(data.staff));
+      // Store staff auth in tab session
+      setTabSession(SESSION_TYPES.STAFF, data.token, data.staff);
 
-      // ✅ REDIRECT TO STAFF DASHBOARD
+      // Redirect to staff dashboard
       navigate("/staff/dashboard");
     } catch (error) {
       console.error("LOGIN ERROR:", error);

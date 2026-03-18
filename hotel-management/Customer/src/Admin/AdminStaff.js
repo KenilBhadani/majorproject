@@ -5,6 +5,7 @@ import {
   Users, UserPlus, Edit, Trash2, Shield,
   Mail, Phone, Calendar, Search
 } from 'lucide-react';
+import { getTabToken } from '../utils/tabSession';
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -32,7 +33,7 @@ const AdminStaff = () => {
     try {
       setLoading(true);
       const res = await fetch(`${API}/api/admin/staff`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
+        headers: { Authorization: `Bearer ${getTabToken()}` }
       });
 
       if (res.ok) {
@@ -63,7 +64,7 @@ const AdminStaff = () => {
       try {
         const res = await fetch(`${API}/api/admin/staff/${staffId}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
+          headers: { Authorization: `Bearer ${getTabToken()}` }
         });
 
         if (res.ok) {
@@ -214,12 +215,11 @@ const AdminStaff = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      member.role === 'Maintenance' ? 'bg-purple-100 text-purple-800' :
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${member.role === 'Maintenance' ? 'bg-purple-100 text-purple-800' :
                       member.role === 'Receptionist' ? 'bg-green-100 text-green-800' :
-                      member.role === 'Housekeeping' ? 'bg-orange-100 text-orange-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                        member.role === 'Housekeeping' ? 'bg-orange-100 text-orange-800' :
+                          'bg-gray-100 text-gray-800'
+                      }`}>
                       {member.role}
                     </span>
                   </td>
@@ -235,9 +235,8 @@ const AdminStaff = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      member.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${member.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
                       {member.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
@@ -283,6 +282,7 @@ const AdminStaff = () => {
       {(showAddForm || editingStaff) && (
         <StaffForm
           staff={editingStaff}
+          allStaff={staff}
           onClose={() => {
             setShowAddForm(false);
             setEditingStaff(null);
@@ -307,7 +307,7 @@ const AdminStaff = () => {
 };
 
 // Staff Form Component
-const StaffForm = ({ staff, onClose, onSave }) => {
+const StaffForm = ({ staff, allStaff, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     name: staff?.name || '',
     email: staff?.email || '',
@@ -317,10 +317,25 @@ const StaffForm = ({ staff, onClose, onSave }) => {
     shift: staff?.shift || 'Morning'
   });
 
+  const [error, setError] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
 
     try {
+      // ✅ Check for duplicate email (case-insensitive)
+      const normalizedEmail = formData.email.trim().toLowerCase();
+      const duplicateStaff = allStaff.find(member =>
+        member.email.toLowerCase() === normalizedEmail &&
+        member._id !== staff?._id
+      );
+
+      if (duplicateStaff) {
+        setError(`A staff member with email "${formData.email}" already exists.`);
+        return;
+      }
+
       // Remove empty password if updating
       const payload = { ...formData };
       if (staff && !payload.password) {
@@ -335,7 +350,7 @@ const StaffForm = ({ staff, onClose, onSave }) => {
         method: staff ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('adminToken')}`
+          Authorization: `Bearer ${getTabToken()}`
         },
         body: JSON.stringify(payload)
       });
@@ -344,12 +359,12 @@ const StaffForm = ({ staff, onClose, onSave }) => {
         alert(`Staff ${staff ? 'updated' : 'created'} successfully!`);
         onSave();
       } else {
-        const error = await res.json();
-        alert(error.message || 'Failed to save staff');
+        const errorData = await res.json();
+        setError(errorData.message || 'Failed to save staff');
       }
     } catch (err) {
       console.error('Error saving staff:', err);
-      alert('Error saving staff');
+      setError('Error saving staff. Please try again.');
     }
   };
 
@@ -360,6 +375,12 @@ const StaffForm = ({ staff, onClose, onSave }) => {
           {staff ? 'Edit Staff Member' : 'Add New Staff Member'}
         </h3>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
@@ -367,7 +388,7 @@ const StaffForm = ({ staff, onClose, onSave }) => {
               type="text"
               required
               value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -378,7 +399,7 @@ const StaffForm = ({ staff, onClose, onSave }) => {
               type="email"
               required
               value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -391,7 +412,7 @@ const StaffForm = ({ staff, onClose, onSave }) => {
               type="password"
               required={!staff}
               value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder={staff ? "••••••••" : ""}
             />
@@ -401,7 +422,7 @@ const StaffForm = ({ staff, onClose, onSave }) => {
             <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
             <select
               value={formData.role}
-              onChange={(e) => setFormData({...formData, role: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="Receptionist">Receptionist</option>
@@ -414,11 +435,10 @@ const StaffForm = ({ staff, onClose, onSave }) => {
             <label className="block text-sm font-medium text-slate-700 mb-1">Shift</label>
             <select
               value={formData.shift}
-              onChange={(e) => setFormData({...formData, shift: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, shift: e.target.value })}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="Morning">Morning</option>
-              <option value="Evening">Evening</option>
               <option value="Night">Night</option>
             </select>
           </div>
@@ -428,7 +448,7 @@ const StaffForm = ({ staff, onClose, onSave }) => {
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>

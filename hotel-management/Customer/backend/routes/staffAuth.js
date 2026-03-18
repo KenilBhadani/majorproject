@@ -26,6 +26,11 @@ router.post("/login", async (req, res) => {
 
   // store staff session if possible
   if (req.session) {
+    // Clear any existing user session to prevent cross-role access
+    if (req.session.user) {
+      delete req.session.user;
+    }
+
     req.session.staff = { staffId: staff._id.toString(), role: staff.role };
   }
 

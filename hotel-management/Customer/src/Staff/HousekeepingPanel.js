@@ -6,7 +6,9 @@ const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const HousekeepingPanel = () => {
   const [rooms, setRooms] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tasksLoading, setTasksLoading] = useState(true);
 
   // 🔐 Authorization - Housekeeping ONLY
   const user = JSON.parse(localStorage.getItem('staffUser') || 'null');
@@ -16,8 +18,48 @@ const HousekeepingPanel = () => {
   useEffect(() => {
     if (isAuthorized) {
       fetchRooms();
-    } else setLoading(false);
+      fetchTasks();
+    } else {
+      setLoading(false);
+      setTasksLoading(false);
+    }
   }, [isAuthorized]);
+
+  const fetchTasks = async () => {
+    try {
+      const res = await fetch(`${API}/api/staff/tasks`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('staffToken')}`
+        }
+      });
+      if (!res.ok) throw new Error("Failed to load tasks");
+      const data = await res.json();
+      const taskList = Array.isArray(data.tasks) ? data.tasks : (Array.isArray(data) ? data : []);
+
+      // Filter only pending and in-progress tasks
+      const activeTasks = taskList.filter(t => ['Pending', 'In Progress'].includes(t.status));
+      setTasks(activeTasks);
+    } catch (err) {
+      console.error("Failed to load tasks:", err);
+      setTasks([]);
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  const markTaskComplete = async (taskId) => {
+    try {
+      const res = await fetch(`${API}/api/staff/tasks/${taskId}/complete`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
+      });
+      if (!res.ok) throw new Error('Failed to update task');
+      fetchTasks(); // Refresh tasks
+      alert('Task marked as complete!');
+    } catch (err) {
+      alert(err.message || 'Failed to update task');
+    }
+  };
 
 
 
@@ -30,14 +72,14 @@ const HousekeepingPanel = () => {
       });
       if (!res.ok) throw new Error("Failed to load rooms");
       const data = await res.json();
-      
+
       // ✅ Filter to show only rooms assigned to this user
       // Support both _id and userId depending on how it's stored
       const userId = user._id || user.userId || user.id;
-      
+
       // Filter: Show rooms assigned to this user AND in CLEANING status (or others if relevant)
       const assignedRooms = Array.isArray(data) ? data.filter(r => r.assignedTo === userId) : [];
-      
+
       setRooms(assignedRooms);
     } catch (err) {
       console.error(err);
@@ -60,7 +102,7 @@ const HousekeepingPanel = () => {
       // DIRTY -> CLEANING (Start Cleaning)
       // CLEANING -> CLEAN (Wait for Approval)
       // CLEAN/DIRTY/CLEANING -> MAINTENANCE (Report Issue)
-      
+
       const validTransitions = {
         'DIRTY': ['CLEANING', 'MAINTENANCE'],
         'CLEANING': ['CLEAN', 'MAINTENANCE', 'REVIEW'], // Added REVIEW
@@ -80,7 +122,7 @@ const HousekeepingPanel = () => {
         },
         body: JSON.stringify({ status })
       });
-      
+
       if (res.ok) {
         fetchRooms(); // Refresh to show updated status
         alert(`Room status updated to ${status}`);
@@ -122,13 +164,76 @@ const HousekeepingPanel = () => {
           </div>
         </div>
         <button
-          onClick={fetchRooms}
+          onClick={() => {
+            fetchRooms();
+            fetchTasks();
+          }}
           className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-          title="Refresh rooms"
+          title="Refresh"
         >
           <RefreshCw size={20} className="text-slate-600" />
         </button>
       </div>
+
+      {/* Tasks Section */}
+      {tasks.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <CheckCircle2 className="text-blue-600" size={20} />
+            Your Assigned Tasks ({tasks.length})
+          </h3>
+
+          {tasksLoading ? (
+            <div className="space-y-3">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-24 bg-slate-200 animate-pulse rounded-2xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tasks.map(task => (
+                <div key={task._id} className="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-md transition flex items-center justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${task.priority === 'High' ? 'bg-red-50 text-red-600' :
+                      task.priority === 'Medium' ? 'bg-amber-50 text-amber-600' :
+                        'bg-blue-50 text-blue-600'
+                      }`}>
+                      <Brush size={20} />
+                    </div>
+
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-bold text-slate-800">{task.title}</h4>
+                        {task.priority === 'High' && (
+                          <span className="text-[9px] font-black uppercase bg-red-50 text-red-600 px-2 py-0.5 rounded-md">
+                            Urgent
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 mb-2">{task.description || 'No description'}</p>
+                      <div className="flex items-center gap-3 text-xs text-slate-500">
+                        <span className="font-semibold">Room Number: {task.location || '—'}</span>
+                        <span className={`px-2 py-0.5 rounded-full ${task.status === 'In Progress' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                          {task.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => markTaskComplete(task._id)}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all whitespace-nowrap"
+                  >
+                    <CheckCircle2 size={16} />
+                    Complete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Rooms Cleaning Section */}
       <div className="space-y-4">

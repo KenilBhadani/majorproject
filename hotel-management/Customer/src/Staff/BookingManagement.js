@@ -6,6 +6,7 @@ import {
   Search, Edit, CheckCircle, XCircle,
   Plus, Eye, Phone, Mail
 } from 'lucide-react';
+import { getTabToken, getTabUser } from '../utils/tabSession';
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -15,9 +16,11 @@ const BookingManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   // 🔐 Authorization - Receptionist ONLY
-  const user = JSON.parse(localStorage.getItem('staffUser') || 'null');
+  const user = getTabUser();
+  const token = getTabToken();
   const isAuthorized = user && user.role === 'Receptionist';
 
   useEffect(() => {
@@ -32,7 +35,7 @@ const BookingManagement = () => {
     try {
       setLoading(true);
       const res = await fetch(`${API}/api/staff/bookings`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('staffToken')}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (res.ok) {
@@ -63,36 +66,38 @@ const BookingManagement = () => {
 
   // Handle status updates
   const updateBookingStatus = async (bookingId, newStatus) => {
+    setActionError('');
     try {
       const res = await fetch(`${API}/api/staff/bookings/${bookingId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('staffToken')}`
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ status: newStatus })
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (res.ok) {
-        fetchBookings(); // Refresh data
-        alert(`Booking ${newStatus.toLowerCase()} successfully!`);
-        setSelectedBooking(null); // Close modal
+        await fetchBookings();
+        setSelectedBooking(null);
       } else {
-        alert('Failed to update booking status');
+        const msg = data.message || `Failed to update booking status (${res.status})`;
+        setActionError(msg);
+        alert(msg);
       }
     } catch (err) {
       console.error('Error updating booking:', err);
-      alert('Error updating booking status');
+      const msg = 'Network error. Please try again.';
+      setActionError(msg);
+      alert(msg);
     }
   };
 
   // Handle cash payment confirmation
   const handleCashTaken = async (bookingId) => {
-    if(!window.confirm("Confirm cash payment received?")) return;
-    
-    // We can update payment status to Paid and booking status to Confirmed
-    // Assuming backend handles this via status update or specific payment endpoint
-    // For now, let's update status to 'Confirmed' if it was Pending
+    if (!window.confirm("Confirm cash payment received?")) return;
     updateBookingStatus(bookingId, 'Confirmed');
   };
 
@@ -131,6 +136,14 @@ const BookingManagement = () => {
           New Booking
         </Link>
       </div>
+
+      {/* Error Banner */}
+      {actionError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium flex justify-between items-center">
+          <span>⚠️ {actionError}</span>
+          <button onClick={() => setActionError('')} className="text-red-400 hover:text-red-600 font-bold ml-4">✕</button>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="bg-white rounded-xl p-6 border border-slate-100">
@@ -207,17 +220,27 @@ const BookingManagement = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      booking.bookingStatus === 'Checked-in' ? 'bg-green-100 text-green-800' :
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${booking.bookingStatus === 'Checked-in' ? 'bg-green-100 text-green-800' :
                       booking.bookingStatus === 'Confirmed' ? 'bg-blue-100 text-blue-800' :
-                      booking.bookingStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                        booking.bookingStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                      }`}>
                       {booking.bookingStatus}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
+                      {/* Confirm Pending booking */}
+                      {booking.bookingStatus === 'Pending' && (
+                        <button
+                          onClick={() => updateBookingStatus(booking._id, 'Confirmed')}
+                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                        >
+                          <CheckCircle size={12} />
+                          Confirm
+                        </button>
+                      )}
+
                       {/* Check-in Action */}
                       {booking.bookingStatus === 'Confirmed' && (
                         <button
@@ -231,9 +254,9 @@ const BookingManagement = () => {
 
                       {/* Cancelled Status - No Actions */}
                       {booking.bookingStatus === 'Cancelled' && (
-                         <span className="px-3 py-1 text-xs font-bold text-red-500 bg-red-50 rounded border border-red-100">
-                           Cancelled
-                         </span>
+                        <span className="px-3 py-1 text-xs font-bold text-red-500 bg-red-50 rounded border border-red-100">
+                          Cancelled
+                        </span>
                       )}
 
                       {/* Check-out Action */}
@@ -316,21 +339,19 @@ const BookingManagement = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Status</label>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    selectedBooking.bookingStatus === 'Checked-in' ? 'bg-green-100 text-green-800' :
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${selectedBooking.bookingStatus === 'Checked-in' ? 'bg-green-100 text-green-800' :
                     selectedBooking.bookingStatus === 'Confirmed' ? 'bg-blue-100 text-blue-800' :
-                    selectedBooking.bookingStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
+                      selectedBooking.bookingStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                    }`}>
                     {selectedBooking.bookingStatus}
                   </span>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Payment Status</label>
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      selectedBooking.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${selectedBooking.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                      }`}>
                       {selectedBooking.paymentStatus || 'Pending'}
                     </span>
                     <span className="text-xs text-slate-500">
@@ -344,7 +365,7 @@ const BookingManagement = () => {
                   <label className="block text-sm font-medium text-slate-700">Total Amount</label>
                   <p className="text-slate-900 font-bold">Rs. {selectedBooking.totalAmount || '0'}</p>
                 </div>
-                
+
                 {/* Cash Taken Button */}
                 {selectedBooking.paymentMethod === 'Cash' && selectedBooking.bookingStatus === 'Pending' && (
                   <div className="col-span-2 mt-2 p-3 bg-amber-50 rounded-lg border border-amber-200 flex justify-between items-center">

@@ -5,6 +5,7 @@ import { Users, ShieldCheck, ArrowRight } from "lucide-react";
 import Header2 from "./Header2";
 import Footer from "./footer";
 import FloatingInput from "./FloatingInput";
+import { getTabToken } from "../utils/tabSession";
 
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -85,7 +86,7 @@ export default function BookingForm() {
 
   useEffect(() => {
     async function fetchUser() {
-      const token = localStorage.getItem("token");
+      const token = getTabToken();
       if (!token) return;
 
       try {
@@ -94,10 +95,16 @@ export default function BookingForm() {
         });
         if (!res.ok) return;
         const data = await res.json();
+
+        // User model has single 'name' field - split into first/last
+        const nameParts = (data.name || "").trim().split(" ");
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
         setForm((prev) => ({
           ...prev,
-          firstName: data.firstName || prev.firstName,
-          lastName: data.lastName || prev.lastName,
+          firstName: firstName || prev.firstName,
+          lastName: lastName || prev.lastName,
           email: data.email || prev.email,
           phone: data.phone || prev.phone,
         }));
@@ -165,7 +172,7 @@ export default function BookingForm() {
     setError("");
 
     try {
-      const token = localStorage.getItem("token");
+      const token = getTabToken(); // use tab session token
       const headers = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -188,13 +195,14 @@ export default function BookingForm() {
           }),
         });
 
-        if (!saveRes.ok) throw new Error("Booking save failed");
+        if (!saveRes.ok) {
+          const errData = await saveRes.json().catch(() => ({}));
+          throw new Error(errData.error || "Booking save failed");
+        }
 
-        if (!token) localStorage.setItem("guestEmail", form.email);
-        sessionStorage.clear();
-
-        toast.success("Booking successful! Redirecting to home...", { autoClose: 2000 });
-        setTimeout(() => navigate("/"), 2100);
+        // DO NOT clear sessionStorage - it logs the user out!
+        toast.success("Booking successful! Redirecting...", { autoClose: 2000 });
+        setTimeout(() => navigate("/bookings"), 2100);
         return;
       }
 
@@ -242,7 +250,10 @@ export default function BookingForm() {
         }),
       });
 
-      if (!saveRes.ok) throw new Error("Booking save failed");
+      if (!saveRes.ok) {
+        const errData = await saveRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Booking save failed");
+      }
 
       const verifyRes = await fetch(`${API_URL}/api/bookings/verify-payment`, {
         method: "POST",
@@ -252,11 +263,9 @@ export default function BookingForm() {
 
       if (!verifyRes.ok) throw new Error("Payment verification failed");
 
-      if (!token) localStorage.setItem("guestEmail", form.email);
-      sessionStorage.clear();
-
-      toast.success("Booking successful! Redirecting to home...", { autoClose: 2000 });
-      setTimeout(() => navigate("/"), 2100);
+      // DO NOT clear sessionStorage - it logs the user out!
+      toast.success("Booking successful! Redirecting...", { autoClose: 2000 });
+      setTimeout(() => navigate("/bookings"), 2100);
     } catch (err) {
       console.error(err);
       setError(err.message || "Booking failed");
@@ -292,7 +301,7 @@ export default function BookingForm() {
           <form onSubmit={handleSubmit} className="grid lg:grid-cols-12 gap-8">
             <div className="lg:col-span-8 bg-white p-8 rounded-3xl border">
               <h2 className="flex gap-2 font-bold mb-6"><Users /> Guest Details</h2>
-              <div className="grid md:grid-cols-4 gap-4">
+              <div className="grid md:grid-cols-3 gap-4">
                 <select name="title" value={form.title} onChange={handleChange} className="h-[56px] px-4 border rounded-lg bg-slate-50">
                   <option value="">Title</option>
                   <option>Mr.</option>

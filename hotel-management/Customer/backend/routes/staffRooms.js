@@ -18,31 +18,65 @@ const ROLE_PERMISSIONS = {
 // ============================================================================
 router.get('/', verifyStaff, async (req, res) => {
   try {
-    const rooms = await Room.find({}).sort({ title: 1 }).lean();
+    // ✅ Optimized: Use aggregation to avoid N+1 queries
+    const rooms = await Room.aggregate([
+      { $match: {} },
+      { $sort: { title: 1 } },
+      {
+        $lookup: {
+          from: 'bookings',
+          let: { roomId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$roomId', '$$roomId'] },
+                    { $in: ['$bookingStatus', ['Confirmed', 'Checked-in']] },
+                    { $lte: ['$checkIn', new Date()] },
+                    { $gte: ['$checkOut', new Date()] }
+                  ]
+                }
+              }
+            },
+            { $count: 'count' }
+          ],
+          as: 'activeBookings'
+        }
+      },
+      {
+        $addFields: {
+          activeBookingCount: { $ifNull: [{ $arrayElemAt: ['$activeBookings.count', 0] }, 0] },
+          availableUnits: {
+            $max: [
+              0,
+              { $subtract: ['$totalRooms', { $ifNull: [{ $arrayElemAt: ['$activeBookings.count', 0] }, 0] }] }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          roomNumber: '$title',
+          isAvailable: { $gt: ['$availableUnits', 0] },
+          occupancyRate: {
+            $cond: {
+              if: { $gt: ['$totalRooms', 0] },
+              then: {
+                $multiply: [
+                  { $divide: [{ $subtract: ['$totalRooms', '$availableUnits'] }, '$totalRooms'] },
+                  100
+                ]
+              },
+              else: 0
+            }
+          }
+        }
+      },
+      { $project: { activeBookings: 0 } }
+    ]);
 
-    // Calculate real-time availability for each room type
-    const roomsWithAvailability = await Promise.all(
-      rooms.map(async (room) => {
-        const activeBookings = await Booking.countDocuments({
-          roomId: room._id,
-          bookingStatus: { $in: ['Confirmed', 'Checked-in'] },
-          checkIn: { $lte: new Date() },
-          checkOut: { $gte: new Date() }
-        });
-
-        const availableUnits = Math.max(0, room.totalRooms - activeBookings);
-
-        return {
-          ...room,
-          roomNumber: room.title, // Keep for backward compatibility if frontend expects it
-          availableUnits,
-          isAvailable: availableUnits > 0,
-          occupancyRate: room.totalRooms > 0 ? ((room.totalRooms - availableUnits) / room.totalRooms) * 100 : 0
-        };
-      })
-    );
-
-    res.json(roomsWithAvailability);
+    res.json(rooms);
   } catch (err) {
     console.error('GET ROOMS ERROR:', err);
     res.status(500).json({ message: 'Failed to load rooms' });
@@ -56,8 +90,47 @@ router.get('/instances', verifyStaff, async (req, res) => {
   try {
     const instances = await RoomInstance.find({})
       .populate('roomListing', 'title roomType')
-      .sort({ roomNumber: 1 });
-    res.json(instances);
+      .sort({ roomNumber: 1 })
+      .lean();
+
+    // For STAY rooms, find the active booking to get customer name
+    const stayRoomIds = instances
+      .filter(r => r.status === 'STAY')
+      .map(r => r._id);
+
+    let activeBookingMap = {};
+    if (stayRoomIds.length > 0) {
+      const now = new Date();
+      const activeBookings = await Booking.find({
+        assignedRoomInstance: { $in: stayRoomIds },
+        bookingStatus: 'Checked-in',
+        checkIn: { $lte: now },
+        checkOut: { $gt: now }
+      })
+        .select('assignedRoomInstance firstName lastName email checkIn checkOut')
+        .lean();
+
+      activeBookings.forEach(b => {
+        activeBookingMap[b.assignedRoomInstance.toString()] = {
+          customerName: `${b.firstName || ''} ${b.lastName || ''}`.trim(),
+          email: b.email,
+          checkIn: b.checkIn,
+          checkOut: b.checkOut,
+          bookingId: b._id
+        };
+      });
+    }
+
+    // Attach customer info to STAY rooms
+    const enriched = instances.map(room => {
+      if (room.status === 'STAY') {
+        const booking = activeBookingMap[room._id.toString()];
+        return { ...room, currentGuest: booking || null };
+      }
+      return room;
+    });
+
+    res.json(enriched);
   } catch (err) {
     console.error('GET INSTANCES ERROR:', err);
     res.status(500).json({ message: 'Failed to load room instances' });
@@ -82,26 +155,26 @@ router.post('/check-in', verifyStaff, async (req, res) => {
     // Find a FREE room instance for this room type
     // Prioritize previously assigned room if any
     let roomInstance;
-    
+
     if (booking.assignedRoomInstance) {
-        roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
-        if (roomInstance && roomInstance.status !== 'FREE' && roomInstance.status !== 'CLEAN') {
-            // Assigned room is not ready, try to find another
-            roomInstance = null;
-        }
+      roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
+      if (roomInstance && roomInstance.status !== 'FREE' && roomInstance.status !== 'CLEAN') {
+        // Assigned room is not ready, try to find another
+        roomInstance = null;
+      }
     }
 
     if (!roomInstance) {
-        // Find any FREE or CLEAN room of the correct type
-        // Fix: Sort by roomNumber ascending to ensure sequential assignment (1, 2, 3...)
-        roomInstance = await RoomInstance.findOne({
-            roomListing: booking.roomId,
-            status: { $in: ['FREE', 'CLEAN'] }
-        }).sort({ roomNumber: 1 });
+      // Find any FREE or CLEAN room of the correct type
+      // Fix: Sort by roomNumber ascending to ensure sequential assignment (1, 2, 3...)
+      roomInstance = await RoomInstance.findOne({
+        roomListing: booking.roomId,
+        status: { $in: ['FREE', 'CLEAN'] }
+      }).sort({ roomNumber: 1 });
     }
 
     if (!roomInstance) {
-        return res.status(400).json({ message: "No available clean rooms of this type found for check-in." });
+      return res.status(400).json({ message: "No available clean rooms of this type found for check-in." });
     }
 
     // Update Booking
@@ -110,15 +183,17 @@ router.post('/check-in', verifyStaff, async (req, res) => {
     booking.assignedRoomNumber = roomInstance.roomNumber;
     booking.actualCheckIn = new Date();
     booking.history.push({
-        action: 'check-in',
-        by: req.user.userId,
-        note: `Checked in to room ${roomInstance.roomNumber}`
+      action: 'check-in',
+      by: req.user.userId,
+      note: `Checked in to room ${roomInstance.roomNumber}`
     });
     await booking.save();
+    console.log(`[CHECK-IN] Booking ${bookingId} assigned to room instance ${roomInstance._id} (Room ${roomInstance.roomNumber})`);
 
     // Update Room Instance
     roomInstance.status = 'STAY';
     await roomInstance.save();
+    console.log(`[CHECK-IN] Room ${roomInstance.roomNumber} status updated to STAY`);
 
     res.json({ success: true, message: "Check-in successful", booking, roomInstance });
 
@@ -147,20 +222,27 @@ router.post('/check-out', verifyStaff, async (req, res) => {
     booking.bookingStatus = 'Checked-out';
     booking.actualCheckOut = new Date();
     booking.history.push({
-        action: 'check-out',
-        by: req.user.userId,
-        note: `Checked out from room ${booking.assignedRoomNumber}`
+      action: 'check-out',
+      by: req.user.userId,
+      note: `Checked out from room ${booking.assignedRoomNumber}`
     });
     await booking.save();
 
     // Update Room Instance -> DIRTY
     if (booking.assignedRoomInstance) {
-        const roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
-        if (roomInstance) {
-            roomInstance.status = 'DIRTY'; // Changed from CLEANING to DIRTY as per new workflow
-            roomInstance.lastStatusUpdate = new Date();
-            await roomInstance.save();
-        }
+      console.log(`[CHECKOUT] Looking for room instance: ${booking.assignedRoomInstance}`);
+      const roomInstance = await RoomInstance.findById(booking.assignedRoomInstance);
+      if (roomInstance) {
+        console.log(`[CHECKOUT] Found room ${roomInstance.roomNumber}, current status: ${roomInstance.status}`);
+        roomInstance.status = 'DIRTY'; // Changed from CLEANING to DIRTY as per new workflow
+        roomInstance.lastStatusUpdate = new Date();
+        await roomInstance.save();
+        console.log(`[CHECKOUT] Room ${roomInstance.roomNumber} status updated to DIRTY`);
+      } else {
+        console.log(`[CHECKOUT] Room instance not found for ID: ${booking.assignedRoomInstance}`);
+      }
+    } else {
+      console.log(`[CHECKOUT] No assignedRoomInstance in booking ${bookingId}`);
     }
 
     res.json({ success: true, message: "Check-out successful", booking });
@@ -204,161 +286,172 @@ router.post('/payment', verifyStaff, async (req, res) => {
 // POST /api/staff/rooms/assign - Assign Staff to Room (Admin Only)
 // ============================================================================
 router.post('/assign', verifyStaff, async (req, res) => {
-    try {
-        const userRole = req.user.role.toLowerCase();
-        if (userRole !== 'admin' && userRole !== 'manager') {
-            return res.status(403).json({ message: "Only Admin/Manager can assign rooms" });
-        }
-
-        const { roomId, staffId } = req.body;
-        
-        const roomInstance = await RoomInstance.findById(roomId);
-        if (!roomInstance) return res.status(404).json({ message: "Room not found" });
-
-        // Verify staff exists and has correct role
-        // Assuming we have a way to check staff role, ideally query Staff model
-        // For now, we trust the ID passed, or we can import Staff model if needed.
-        // Let's assume frontend sends valid staffId. 
-        // Ideally: const staff = await Staff.findById(staffId);
-        
-        roomInstance.assignedTo = staffId;
-        await roomInstance.save();
-
-        res.json({ success: true, message: "Staff assigned successfully", roomInstance });
-    } catch (err) {
-        console.error('ASSIGN ERROR:', err);
-        res.status(500).json({ message: 'Assignment failed' });
+  try {
+    const userRole = req.user.role.toLowerCase();
+    if (userRole !== 'admin' && userRole !== 'manager') {
+      return res.status(403).json({ message: "Only Admin/Manager can assign rooms" });
     }
+
+    const { roomId, staffId } = req.body;
+
+    const roomInstance = await RoomInstance.findById(roomId);
+    if (!roomInstance) return res.status(404).json({ message: "Room not found" });
+
+    // Store previous status for logging
+    const previousStatus = roomInstance.status;
+
+    // Assign staff
+    roomInstance.assignedTo = staffId;
+
+    // Auto-transition: DIRTY → CLEANING when staff is assigned
+    if (roomInstance.status === 'DIRTY') {
+      roomInstance.status = 'CLEANING';
+      roomInstance.lastStatusUpdate = new Date();
+      console.log(`[ASSIGN] Room ${roomInstance.roomNumber} status changed from DIRTY to CLEANING (staff assigned)`);
+    }
+
+    await roomInstance.save();
+
+    res.json({
+      success: true,
+      message: "Staff assigned successfully",
+      roomInstance,
+      statusChanged: previousStatus === 'DIRTY' && roomInstance.status === 'CLEANING'
+    });
+  } catch (err) {
+    console.error('ASSIGN ERROR:', err);
+    res.status(500).json({ message: 'Assignment failed' });
+  }
 });
 
 // ============================================================================
 // PATCH /api/staff/rooms/instance/:id - Update Room Instance Status
 // ============================================================================
 router.patch('/instance/:id', verifyStaff, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-        const userRole = req.user.role.toLowerCase();
-        const userId = req.user.userId;
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userRole = req.user.role.toLowerCase();
+    const userId = req.user.userId;
 
-        const validStatuses = ['FREE', 'STAY', 'DIRTY', 'CLEANING', 'MAINTENANCE', 'READY', 'REVIEW'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message: "Invalid status" });
-        }
-
-        const roomInstance = await RoomInstance.findById(id);
-        if (!roomInstance) {
-            return res.status(404).json({ message: "Room instance not found" });
-        }
-
-        const currentStatus = roomInstance.status;
-
-        // --- STATE MACHINE & AUTHORIZATION LOGIC ---
-
-        // 1. ADMIN / MANAGER OVERRIDE
-        if (userRole === 'admin' || userRole === 'manager') {
-            // Admin can do anything, including marking READY -> FREE
-            roomInstance.status = status;
-            roomInstance.assignedTo = null; // Clear assignment on status change? Or keep it?
-            // Usually if Admin sets to FREE, assignment is cleared.
-            if (status === 'FREE') roomInstance.assignedTo = null;
-            
-            roomInstance.lastStatusUpdate = new Date();
-            await roomInstance.save();
-            return res.json({ success: true, roomInstance });
-        }
-
-        // 2. HOUSEKEEPING LOGIC
-        if (userRole === 'housekeeping') {
-            // Check assignment
-            if (roomInstance.assignedTo && roomInstance.assignedTo.toString() !== userId) {
-                 return res.status(403).json({ message: "You are not assigned to this room" });
-            }
-
-            // Allowed Transitions:
-            // DIRTY -> CLEANING
-            // CLEANING -> REVIEW
-            // CLEANING -> MAINTENANCE (Report Issue)
-            
-            if (currentStatus === 'DIRTY' && status === 'CLEANING') {
-                // OK
-            } else if (currentStatus === 'CLEANING' && status === 'REVIEW') {
-                // OK - Cleaning done, ready for review
-            } else if (currentStatus === 'CLEANING' && status === 'MAINTENANCE') {
-                // OK - Reporting issue
-                // Maybe unassign housekeeping and notify admin/maintenance?
-                // For now, just allow status change.
-            } else {
-                return res.status(400).json({ message: `Housekeeping cannot change ${currentStatus} to ${status}` });
-            }
-        }
-
-        // 3. MAINTENANCE LOGIC
-        if (userRole === 'maintenance') {
-             // Check assignment
-             if (roomInstance.assignedTo && roomInstance.assignedTo.toString() !== userId) {
-                 return res.status(403).json({ message: "You are not assigned to this room" });
-             }
-
-             // Allow transitions
-             
-             // 1. Start Maintenance (From any non-occupied status -> MAINTENANCE)
-             if (status === 'MAINTENANCE') {
-                 if (currentStatus === 'STAY') {
-                     return res.status(400).json({ message: "Cannot start maintenance on occupied room" });
-                 }
-                 // OK to start maintenance
-             }
-             // 2. Complete Maintenance (MAINTENANCE -> REVIEW)
-             else if (currentStatus === 'MAINTENANCE' && status === 'REVIEW') {
-                 // OK - Work done, waiting for admin approval
-             }
-             // 3. Complete Maintenance Legacy/Alternative (MAINTENANCE -> READY)
-             // Kept for flexibility if needed, but REVIEW is preferred workflow
-             else if (currentStatus === 'MAINTENANCE' && status === 'READY') {
-                 // OK
-             }
-             else {
-                  return res.status(400).json({ message: `Maintenance cannot change ${currentStatus} to ${status}` });
-             }
-        }
-
-        // 4. RECEPTIONIST LOGIC
-        if (userRole === 'receptionist') {
-            // Can they change anything? 
-            // Usually they handle Check-in (FREE->STAY) and Check-out (STAY->DIRTY) via other endpoints.
-            // Direct status change might be restricted.
-            // Let's allow them to set DIRTY -> FREE in emergency? Or strictly follow workflow?
-            // User said: "Only Admin can change 'Ready' -> 'Available'"
-            // So Receptionist probably shouldn't mess with maintenance/cleaning flow.
-             return res.status(403).json({ message: "Receptionist cannot manually update room status. Use Check-in/Check-out." });
-        }
-
-        // Apply Update
-        roomInstance.status = status;
-        roomInstance.lastStatusUpdate = new Date();
-        
-        // Auto-clear assignment if room becomes READY?
-        // User said: "After Cleaning or Maintenance completed -> status = 'Ready'. Only Admin can change 'Ready' -> 'Available'"
-        // Maybe keep assignment so Admin sees who finished it.
-        
-        await roomInstance.save();
-        res.json({ success: true, roomInstance });
-
-    } catch (err) {
-        console.error('INSTANCE UPDATE ERROR:', err);
-        res.status(500).json({ message: 'Failed to update room status' });
+    const validStatuses = ['FREE', 'STAY', 'DIRTY', 'CLEANING', 'MAINTENANCE', 'READY', 'REVIEW'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
     }
+
+    const roomInstance = await RoomInstance.findById(id);
+    if (!roomInstance) {
+      return res.status(404).json({ message: "Room instance not found" });
+    }
+
+    const currentStatus = roomInstance.status;
+
+    // --- STATE MACHINE & AUTHORIZATION LOGIC ---
+
+    // 1. ADMIN / MANAGER OVERRIDE
+    if (userRole === 'admin' || userRole === 'manager') {
+      // Admin can do anything, including marking READY -> FREE
+      roomInstance.status = status;
+      roomInstance.assignedTo = null; // Clear assignment on status change? Or keep it?
+      // Usually if Admin sets to FREE, assignment is cleared.
+      if (status === 'FREE') roomInstance.assignedTo = null;
+
+      roomInstance.lastStatusUpdate = new Date();
+      await roomInstance.save();
+      return res.json({ success: true, roomInstance });
+    }
+
+    // 2. HOUSEKEEPING LOGIC
+    if (userRole === 'housekeeping') {
+      // Check assignment
+      if (roomInstance.assignedTo && roomInstance.assignedTo.toString() !== userId) {
+        return res.status(403).json({ message: "You are not assigned to this room" });
+      }
+
+      // Allowed Transitions:
+      // DIRTY -> CLEANING
+      // CLEANING -> REVIEW
+      // CLEANING -> MAINTENANCE (Report Issue)
+
+      if (currentStatus === 'DIRTY' && status === 'CLEANING') {
+        // OK
+      } else if (currentStatus === 'CLEANING' && status === 'REVIEW') {
+        // OK - Cleaning done, ready for review
+      } else if (currentStatus === 'CLEANING' && status === 'MAINTENANCE') {
+        // OK - Reporting issue
+        // Maybe unassign housekeeping and notify admin/maintenance?
+        // For now, just allow status change.
+      } else {
+        return res.status(400).json({ message: `Housekeeping cannot change ${currentStatus} to ${status}` });
+      }
+    }
+
+    // 3. MAINTENANCE LOGIC
+    if (userRole === 'maintenance') {
+      // Check assignment
+      if (roomInstance.assignedTo && roomInstance.assignedTo.toString() !== userId) {
+        return res.status(403).json({ message: "You are not assigned to this room" });
+      }
+
+      // Allow transitions
+
+      // 1. Start Maintenance (From any non-occupied status -> MAINTENANCE)
+      if (status === 'MAINTENANCE') {
+        if (currentStatus === 'STAY') {
+          return res.status(400).json({ message: "Cannot start maintenance on occupied room" });
+        }
+        // OK to start maintenance
+      }
+      // 2. Complete Maintenance (MAINTENANCE -> REVIEW)
+      else if (currentStatus === 'MAINTENANCE' && status === 'REVIEW') {
+        // OK - Work done, waiting for admin approval
+      }
+      // 3. Complete Maintenance Legacy/Alternative (MAINTENANCE -> READY)
+      // Kept for flexibility if needed, but REVIEW is preferred workflow
+      else if (currentStatus === 'MAINTENANCE' && status === 'READY') {
+        // OK
+      }
+      else {
+        return res.status(400).json({ message: `Maintenance cannot change ${currentStatus} to ${status}` });
+      }
+    }
+
+    // 4. RECEPTIONIST LOGIC
+    if (userRole === 'receptionist') {
+      // Can they change anything? 
+      // Usually they handle Check-in (FREE->STAY) and Check-out (STAY->DIRTY) via other endpoints.
+      // Direct status change might be restricted.
+      // Let's allow them to set DIRTY -> FREE in emergency? Or strictly follow workflow?
+      // User said: "Only Admin can change 'Ready' -> 'Available'"
+      // So Receptionist probably shouldn't mess with maintenance/cleaning flow.
+      return res.status(403).json({ message: "Receptionist cannot manually update room status. Use Check-in/Check-out." });
+    }
+
+    // Apply Update
+    roomInstance.status = status;
+    roomInstance.lastStatusUpdate = new Date();
+
+    // Auto-clear assignment if room becomes READY?
+    // User said: "After Cleaning or Maintenance completed -> status = 'Ready'. Only Admin can change 'Ready' -> 'Available'"
+    // Maybe keep assignment so Admin sees who finished it.
+
+    await roomInstance.save();
+    res.json({ success: true, roomInstance });
+
+  } catch (err) {
+    console.error('INSTANCE UPDATE ERROR:', err);
+    res.status(500).json({ message: 'Failed to update room status' });
+  }
 });
 
 // ============================================================================
 // PUT /api/staff/rooms/status - Legacy support or generic status update
 // ============================================================================
 router.put('/status', verifyStaff, async (req, res) => {
-    // Redirect to check-in/check-out logic if applicable, or just generic update
-    // This is kept for backward compatibility if other parts of frontend use it
-    // ideally, we should migrate frontend to use check-in/check-out endpoints
-    res.status(501).json({ message: "Please use /check-in, /check-out or /instance/:id endpoints" });
+  // Redirect to check-in/check-out logic if applicable, or just generic update
+  // This is kept for backward compatibility if other parts of frontend use it
+  // ideally, we should migrate frontend to use check-in/check-out endpoints
+  res.status(501).json({ message: "Please use /check-in, /check-out or /instance/:id endpoints" });
 });
 
 module.exports = router;

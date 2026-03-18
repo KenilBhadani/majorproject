@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  BedDouble, 
-  CalendarDays, 
-  Users, 
-  CreditCard, 
-  UserCog, 
+import {
+  LayoutDashboard,
+  BedDouble,
+  CalendarDays,
+  Users,
+  CreditCard,
+  UserCog,
   LogOut,
   ClipboardCheck
 } from "lucide-react";
@@ -21,6 +21,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { getTabToken, getTabUser, logoutTab } from "../utils/tabSession";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -74,8 +75,18 @@ function buildTrendSeries(trends, days) {
 /* ================= DASHBOARD ================= */
 
 export function DashboardHome() {
-  const token =
-    localStorage.getItem("adminToken") || localStorage.getItem("token");
+  const [token, setToken] = useState(null);
+  const [tokenReady, setTokenReady] = useState(false);
+
+  // Initialize token from tab session
+  useEffect(() => {
+    const initToken = () => {
+      const t = getTabToken();
+      setToken(t);
+      setTokenReady(true);
+    };
+    initToken();
+  }, []);
 
   const months = getLastNMonths(12);
   const [selectedMonth, setSelectedMonth] = useState(months[0].key);
@@ -89,8 +100,8 @@ export function DashboardHome() {
   const [loadingTrends, setLoadingTrends] = useState(false);
   const [error, setError] = useState("");
 
-  const authHeaders = useMemo(() => 
-    token ? { Authorization: `Bearer ${token}` } : {}, 
+  const authHeaders = useMemo(() =>
+    token ? { Authorization: `Bearer ${token}` } : {},
     [token]
   );
 
@@ -101,20 +112,28 @@ export function DashboardHome() {
       setLoading(true);
       setError("");
 
+      if (!token) {
+        throw new Error("No authentication token found. Please login again.");
+      }
+
       const res = await fetch(
         `${API}/api/admin/overview?month=${month}`,
         { headers: authHeaders, credentials: "include" }
       );
 
-      if (!res.ok) throw new Error("Failed to load overview");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to load overview (${res.status})`);
+      }
       setOverview(await res.json());
     } catch (err) {
+      console.error("Overview fetch error:", err);
       setError(err.message);
       setOverview(null);
     } finally {
       setLoading(false);
     }
-  }, [authHeaders]);
+  }, [authHeaders, token]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -237,9 +256,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
-    localStorage.removeItem("adminRole");
+    logoutTab();
     navigate("/");
   };
 
@@ -251,6 +268,7 @@ export default function AdminLayout() {
     { path: "/admin/manage-payment", label: "Payments", icon: <CreditCard size={20} /> },
     { path: "/admin/manage-staff", label: "Staff", icon: <UserCog size={20} /> },
     { path: "/admin/room-status", label: "Room Status", icon: <ClipboardCheck size={20} /> },
+    { path: "/admin/tasks", label: "Tasks", icon: <ClipboardCheck size={20} /> },
   ];
 
   return (
@@ -267,8 +285,8 @@ export default function AdminLayout() {
         <nav className="sidebar-nav">
           <p className="nav-section-title">Navigation</p>
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path || 
-                             (item.path !== "/admin" && location.pathname.startsWith(item.path));
+            const isActive = location.pathname === item.path ||
+              (item.path !== "/admin" && location.pathname.startsWith(item.path));
             return (
               <Link
                 key={item.path}
@@ -282,7 +300,7 @@ export default function AdminLayout() {
             );
           })}
         </nav>
-        
+
         <div className="sidebar-footer">
           <button onClick={handleLogout} className="logout-btn">
             <span className="nav-icon"><LogOut size={18} /></span>

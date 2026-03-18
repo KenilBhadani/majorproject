@@ -20,12 +20,39 @@ export default function RoomBooking() {
 
   const [searchParams, setSearchParams] = useState(initialSearch);
   const [rooms, setRooms] = useState([]);
+  const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [restoredInfo, setRestoredInfo] = useState(null);
   const [needsDates, setNeedsDates] = useState(false);
 
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+  // Fetch room types on mount
+  useEffect(() => {
+    const fetchRoomTypes = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/rooms/types`);
+        if (res.ok) {
+          const types = await res.json();
+          if (types && types.length > 0) {
+            setRoomTypes(types);
+          } else {
+            // Fallback to default types
+            setRoomTypes(["Single", "Double", "Twin", "Deluxe", "Suite", "Family", "Standard", "Executive", "Presidential"]);
+          }
+        } else {
+          // Fallback if API fails
+          setRoomTypes(["Single", "Double", "Twin", "Deluxe", "Suite", "Family", "Standard", "Executive", "Presidential"]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch room types:", err);
+        // Fallback to default types
+        setRoomTypes(["Single", "Double", "Twin", "Deluxe", "Suite", "Family", "Standard", "Executive", "Presidential"]);
+      }
+    };
+    fetchRoomTypes();
+  }, [API_URL]);
 
   // ✅ Fetch rooms (ALL rooms or AVAILABLE rooms)
   const fetchRooms = useCallback(async () => {
@@ -42,8 +69,22 @@ export default function RoomBooking() {
       } else {
         // 🟢 Dates selected → AVAILABLE rooms
         setNeedsDates(false);
-        const query = new URLSearchParams(searchParams).toString();
+
+        // Filter out empty values before creating query string
+        const filteredParams = Object.entries(searchParams).reduce((acc, [key, value]) => {
+          if (value !== "" && value !== null && value !== undefined) {
+            acc[key] = value;
+          }
+          return acc;
+        }, {});
+
+        const query = new URLSearchParams(filteredParams).toString();
         url = `${API_URL}/api/rooms/available?${query}`;
+        console.log("=== FRONTEND SEARCH ===");
+        console.log("Original searchParams:", searchParams);
+        console.log("Filtered params:", filteredParams);
+        console.log("Query string:", query);
+        console.log("Full URL:", url);
       }
 
       const res = await fetch(url);
@@ -57,9 +98,9 @@ export default function RoomBooking() {
     } finally {
       setLoading(false);
     }
-  }, [searchParams]);
+  }, [searchParams, API_URL]);
 
-  // 🔄 Load rooms on mount & when search changes
+  // 🔄 Load rooms on mount only (not when searchParams change)
   useEffect(() => {
     fetchRooms();
 
@@ -79,7 +120,8 @@ export default function RoomBooking() {
 
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [fetchRooms, location.state, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]); // Only run on mount and when location.state changes
 
   // 🔍 Manual search
   const handleSearch = () => {
@@ -145,10 +187,13 @@ export default function RoomBooking() {
                 <input
                   type="date"
                   value={searchParams.checkIn}
+                  min={new Date().toISOString().split('T')[0]}
                   onChange={(e) =>
                     setSearchParams({
                       ...searchParams,
                       checkIn: e.target.value,
+                      // reset checkout if it's before new checkin
+                      checkOut: searchParams.checkOut && searchParams.checkOut <= e.target.value ? '' : searchParams.checkOut,
                     })
                   }
                   className="w-full border rounded-lg p-2"
@@ -162,6 +207,7 @@ export default function RoomBooking() {
                 <input
                   type="date"
                   value={searchParams.checkOut}
+                  min={searchParams.checkIn || new Date().toISOString().split('T')[0]}
                   onChange={(e) =>
                     setSearchParams({
                       ...searchParams,
@@ -194,9 +240,7 @@ export default function RoomBooking() {
                 <label className="text-xs font-bold text-slate-500">
                   Room Type
                 </label>
-                <input
-                  type="text"
-                  placeholder="Optional"
+                <select
                   value={searchParams.roomType}
                   onChange={(e) =>
                     setSearchParams({
@@ -205,7 +249,14 @@ export default function RoomBooking() {
                     })
                   }
                   className="w-full border rounded-lg p-2"
-                />
+                >
+                  <option value="">Optional</option>
+                  {roomTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button
@@ -255,9 +306,8 @@ export default function RoomBooking() {
             <p className="text-slate-500 mt-2 font-medium">
               {needsDates
                 ? `Showing ${rooms.length} rooms`
-                : `Showing ${rooms.length} available room${
-                    rooms.length !== 1 && "s"
-                  }`}
+                : `Showing ${rooms.length} available room${rooms.length !== 1 && "s"
+                }`}
             </p>
           </header>
 

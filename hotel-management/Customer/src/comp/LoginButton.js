@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { getTabToken, getTabUser, logoutTab, hasTabSession } from "../utils/tabSession";
 
 function LoginButton({ isMobile = false, closeMenu }) {
   const navigate = useNavigate();
@@ -9,18 +10,28 @@ function LoginButton({ isMobile = false, closeMenu }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [open, setOpen] = useState(false);
 
-  /* ✅ Detect login immediately after Google redirect */
+  /* ✅ Check tab session on mount and route change */
   useEffect(() => {
-    const check = () => !!(localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('staffToken'));
-    setIsLoggedIn(check());
+    const checkTabSession = () => {
+      const hasSession = hasTabSession();
+      const token = getTabToken();
+      setIsLoggedIn(hasSession && !!token);
+    };
+    checkTabSession();
   }, [location.pathname]);
 
-  /* ✅ Multi-tab sync */
+  /* ✅ Listen for tab session changes (custom event) */
   useEffect(() => {
-    const check = () => !!(localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('staffToken'));
-    const sync = () => setIsLoggedIn(check());
-    window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
+    const checkTabSession = () => {
+      const hasSession = hasTabSession();
+      const token = getTabToken();
+      setIsLoggedIn(hasSession && !!token);
+    };
+
+    // Check periodically for session changes in this tab
+    const interval = setInterval(checkTabSession, 500);
+
+    return () => clearInterval(interval);
   }, []);
 
   /* ✅ Close dropdown outside */
@@ -40,7 +51,10 @@ function LoginButton({ isMobile = false, closeMenu }) {
     } catch (e) {
       // ignore network errors
     }
-    localStorage.clear();
+
+    // Use tab session logout (only clears current tab)
+    logoutTab();
+
     setIsLoggedIn(false);
     setOpen(false);
     closeMenu?.();

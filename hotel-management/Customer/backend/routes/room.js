@@ -28,6 +28,22 @@ router.get("/", async (req, res) => {
 });
 
 /* =========================
+   GET UNIQUE ROOM TYPES
+   For dropdown filters
+   /api/rooms/types
+========================= */
+router.get("/types", async (req, res) => {
+  try {
+    // Get distinct room types from active rooms
+    const roomTypes = await RoomListing.distinct("roomType", { status: "active" });
+    res.json(roomTypes);
+  } catch (err) {
+    console.error("Get room types error:", err);
+    res.status(500).json([]);
+  }
+});
+
+/* =========================
    GET AVAILABLE ROOMS (DATE-BASED)
    Guest booking flow
    /api/rooms/available
@@ -35,6 +51,13 @@ router.get("/", async (req, res) => {
 router.get("/available", async (req, res) => {
   try {
     const { roomType, guests, checkIn, checkOut } = req.query;
+
+    console.log("\n=== AVAILABLE ROOMS REQUEST ===");
+    console.log("Raw query params:", req.query);
+    console.log("Room Type received:", `"${roomType}"`, "(type:", typeof roomType, ")");
+    console.log("Guests:", guests);
+    console.log("Check In:", checkIn);
+    console.log("Check Out:", checkOut);
 
     if (!checkIn || !checkOut) return res.json([]);
 
@@ -45,20 +68,31 @@ router.get("/available", async (req, res) => {
       return res.json([]);
     }
 
-    const roomTypeMap = {
-      single: "Single",
-      double: "Double",
-      deluxe: "Deluxe",
-      suite: "Suite",
-      family: "Family",
-    };
-    const normalizedRoomType = roomType && roomTypeMap[roomType.toLowerCase()];
-
+    // Base query
     const roomQuery = { status: "active" };
-    if (normalizedRoomType) roomQuery.roomType = normalizedRoomType;
+
+    // Add room type filter if provided (not empty string)
+    if (roomType && roomType.trim() !== "") {
+      // Use exact match - frontend sends proper case
+      roomQuery.roomType = roomType.trim();
+      console.log("✅ Filtering by room type (exact match):", roomType.trim());
+    } else {
+      console.log("⚠️ No room type filter applied (roomType is empty or undefined)");
+    }
     if (guests) roomQuery.capacity = { $gte: Number(guests) };
 
+    console.log("Final Room Query:", JSON.stringify(roomQuery, null, 2));
+
     const rooms = await RoomListing.find(roomQuery).lean();
+    console.log("=== QUERY RESULTS ===");
+    console.log("Found rooms:", rooms.length);
+    if (rooms.length > 0) {
+      console.log("Room details:");
+      rooms.forEach(r => {
+        console.log(`  - Title: "${r.title}", Room Type: "${r.roomType}", Total Rooms: ${r.totalRooms}`);
+      });
+    }
+
     if (!rooms.length) return res.json([]);
 
     // Overlapping bookings
@@ -84,20 +118,43 @@ router.get("/available", async (req, res) => {
     const availableRooms = [];
     for (let room of rooms) {
       const bookedCount = bookingMap[room._id.toString()] || 0;
-      // We rely on date-based availability (inventory), not physical status (housekeeping)
-      // because physical status is transient and 'STAY' is already covered by overlappingBookings.
-      const availableCount = room.totalRooms - bookedCount;
 
-      if (availableCount <= 0) continue;
+      // Count physically unavailable rooms (DIRTY, CLEANING, MAINTENANCE, STAY, REVIEW)
+      // Only FREE, CLEAN, READY rooms can be assigned to new bookings
+      const unavailableInstances = await RoomInstance.countDocuments({
+        roomListing: room._id,
+        status: { $in: ["DIRTY", "CLEANING", "MAINTENANCE", "STAY", "REVIEW"] }
+      });
+
+      // Available = Total - Active Bookings - Physically Unavailable (not already counted in bookings)
+      // Use max to avoid negative numbers
+      const physicallyAvailable = room.totalRooms - unavailableInstances;
+      const availableCount = Math.max(0, physicallyAvailable - bookedCount);
+
+      console.log(`\n--- Room: ${room.title} (${room.roomType}) ---`);
+      console.log(`Total Rooms: ${room.totalRooms}`);
+      console.log(`Booked Count (date overlap): ${bookedCount}`);
+      console.log(`Unavailable Instances (DIRTY/CLEANING/etc): ${unavailableInstances}`);
+      console.log(`Available Count: ${availableCount}`);
+
+      if (availableCount <= 0) {
+        console.log(`❌ Skipping ${room.title} - No availability`);
+        continue;
+      }
 
       const instances = await RoomInstance.find({ roomListing: room._id }).lean();
       room.roomNumbers = instances;
+      console.log(`✅ Adding ${room.title} to available rooms`);
 
       availableRooms.push({
         ...room,
         availableRooms: availableCount,
       });
     }
+
+    console.log("\n=== FINAL RESULTS ===");
+    console.log("Returning available rooms:", availableRooms.length);
+    console.log("Room types:", availableRooms.map(r => `${r.title} (${r.roomType})`));
 
     res.json(availableRooms);
 

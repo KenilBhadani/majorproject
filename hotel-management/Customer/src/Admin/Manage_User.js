@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "../Admin/Manage_User.css";
+import { getTabToken } from "../utils/tabSession";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -14,7 +15,7 @@ function ManageUser() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
+  const token = getTabToken();
 
   useEffect(() => {
     fetchUsers();
